@@ -9,12 +9,14 @@
 
 int main() {
     char* line;
-    char prompt[80];
+    char prompt[80], login_buf[80], cwd_buf[80];
     while(true) {
-        char cwd_buf[80];
+        getlogin_r(login_buf, sizeof(login_buf));
         getcwd(cwd_buf, sizeof(cwd_buf));
-        strlcpy(prompt, cwd_buf, sizeof(prompt));
-        strlcat(prompt, " ", sizeof(prompt));
+        strlcpy(prompt, login_buf, sizeof(prompt));
+        strlcat(prompt, ":", sizeof(prompt));
+        strlcat(prompt, cwd_buf, sizeof(prompt));
+        strlcat(prompt, "> ", sizeof(prompt));
         line = readline(prompt);
         add_history(line);
         printf("%s\n", line);
