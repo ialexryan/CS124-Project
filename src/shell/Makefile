@@ -1,5 +1,5 @@
 CFLAGS = -Wall -g
-LDFLAGS = -lreadline
+LDFLAGS = -lreadline -lbsd
 
 OBJS = mysh.o
 
