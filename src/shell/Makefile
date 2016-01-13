@@ -1,4 +1,4 @@
-CFLAGS = -Wall -g -std=c99
+CFLAGS = -Wall -g -std=gnu11
 LDFLAGS = -lreadline -lbsd
 
 OBJS = mysh.o
@@ -12,4 +12,3 @@ clean:
 	rm -f *.o *~ mysh
 
 .PHONY: all clean
-

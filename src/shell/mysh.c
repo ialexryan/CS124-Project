@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <bsd/string.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -12,6 +14,35 @@
 typedef struct {
     char **argv;
 } command;
+
+void execute_command(char **argv) {
+	// Check for internal commands first
+	if ((strcmp(argv[0], "cd") == 0) || (strcmp(argv[0], "chdir") == 0)) {
+		if (chdir(argv[1]) < 0) {
+			perror("Chdir error");
+		}
+		return;
+	}
+	if (strcmp(argv[0], "exit") == 0) {
+		exit(0);
+	}
+	
+	// It's not an internal command, so fork out an external command
+	pid_t pid;
+	pid = fork();
+	if (pid < 0) {                     // error
+		perror("Forking error");
+	} else if (pid == 0) {             // child process
+		if (execvp(argv[0], argv) < 0) {
+			perror("Exec error");
+		}
+	} else {                           // parent process
+		int status;
+		if (wait(&status) < 0) {
+			perror("Waiting error");
+		}
+	}
+}
 
 int main() {
     char *line;
@@ -84,7 +115,7 @@ int main() {
 #endif
         
         // Display line back
-        execvp(cmds[0].argv[0], cmds[0].argv);
+		execute_command(cmds[0].argv);
         
         // Free line
         free(line);
