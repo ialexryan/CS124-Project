@@ -16,6 +16,7 @@ typedef struct {
     char **argv;
     char *in_filename;
     char *out_filename;
+    char *error_filename;
     bool appending;
 } command;
 
@@ -23,6 +24,7 @@ typedef enum {
     TokenTypeBeginArgument,
     TokenTypeBeginInFile,
     TokenTypeBeginOutFile,
+    TokenTypeBeginErrorFile,
     TokenTypeOther
 } token_type;
 
@@ -56,6 +58,12 @@ void execute_command(command cmd) {
             int fd = open(cmd.out_filename, O_CREAT | flag | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDOUT_FILENO); // replace STDOUT with file
+            close(fd);               // decrement reference count
+        }
+        if (cmd.error_filename) {
+            int fd = open(cmd.error_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
+            if (fd < 0) return perror("File output error");
+            dup2(fd, STDERR_FILENO); // replace STDERR with file
             close(fd);               // decrement reference count
         }
         
@@ -173,6 +181,32 @@ int main() {
                     *c = (char)0;
                     break;
                     
+                case '0':
+                case '1':
+                case '2':
+                {
+                    char num = *c++;
+                    if (*c == '>') {
+                        switch (num) {
+                            case '0':
+                                next_type = TokenTypeBeginInFile;
+                                break;
+                                
+                            case '1':
+                                next_type = TokenTypeBeginOutFile;
+                                break;
+                                
+                            case '2':
+                                next_type = TokenTypeBeginErrorFile;
+                                break;
+                                
+                            default:
+                                break;
+                        }
+                        break;
+                    } // otherwise read the number normally
+                }
+                    
                 default:
                     if (next_type == TokenTypeOther) break;
                     
@@ -194,7 +228,11 @@ int main() {
                         case TokenTypeBeginOutFile:
                             curr_cmd->out_filename = c;
                             break;
-                        
+
+                        case TokenTypeBeginErrorFile:
+                            curr_cmd->error_filename = c;
+                            break;
+
                         default:
                             exit(1);
                     }
