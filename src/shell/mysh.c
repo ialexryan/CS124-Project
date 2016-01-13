@@ -10,7 +10,19 @@
 #include <readline/history.h>
 
 
-void execute_external_command(char **argv) {
+void execute_command(char **argv) {
+	// Check for internal commands first
+	if ((strcmp(argv[0], "cd") == 0) || (strcmp(argv[0], "chdir") == 0)) {
+		if (chdir(argv[1]) < 0) {
+			perror("Chdir error");
+		}
+		return;
+	}
+	if (strcmp(argv[0], "exit") == 0) {
+		exit(0);
+	}
+	
+	// It's not an internal command, so fork out an external command
 	pid_t pid;
 	pid = fork();
 	if (pid < 0) {                     // error
@@ -68,7 +80,7 @@ int main() {
         *next = NULL;
         
         // Display line back
-		execute_external_command(argv);
+		execute_command(argv);
         
         // Free line
         free(line);
