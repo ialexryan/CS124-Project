@@ -284,9 +284,15 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
                     break;
                 } // otherwise read the number normally
             }
-                
+            
             default:
                 is_token_separator = false;
+                
+                // Skip the open quote if necessary
+                bool is_quoted = (*c == '"');
+                if (is_quoted) c++;
+                
+                // Handle storing reference to beginning of argument
                 switch (state) {
                     case awaiting_token_state:
                         state = consuming_token_state;
@@ -317,12 +323,19 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
                             default:
                                 exit(1);
                         }
-
                         break;
                         
                     default:
                         break;
                 }
+                
+                // Escape the quote
+                if (is_quoted) {
+                    while (*c != '"') c++;
+                    *c = (char)0;
+                    is_token_separator = true;
+                }
+                
                 break;
         }
         if (is_token_separator) {
