@@ -98,8 +98,8 @@ int main() {
                             break;
                             
                         default:
+                            printf("syntax error\n");
                             exit(1);
-                            break;
                     }
                     *c = (char)0;
                     break;
@@ -128,8 +128,8 @@ int main() {
                             break;
                             
                         default:
+                            printf("syntax error\n");
                             exit(1);
-                            break;
                     }
                     *c = (char)0;
                     break;
@@ -143,8 +143,8 @@ int main() {
                             break;
                             
                         default:
+                            printf("syntax error");
                             exit(1);
-                            break;
                     }
                     *c = (char)0;
                     break;
