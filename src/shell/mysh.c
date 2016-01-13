@@ -46,11 +46,13 @@ void execute_command(command cmd) {
         // Replace file descriptors
         if (cmd.in_filename) {
             int fd = open(cmd.in_filename, O_RDONLY);
+            if (fd < 0) return perror("File input error");
             dup2(fd, STDIN_FILENO); // replace STDIN with file
             close(fd);              // decrement reference count
         }
         if (cmd.out_filename) {
             int fd = open(cmd.out_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
+            if (fd < 0) return perror("File output error");
             dup2(fd, STDOUT_FILENO); // replace STDOUT with file
             close(fd);               // decrement reference count
         }
