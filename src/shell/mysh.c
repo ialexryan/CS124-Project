@@ -28,7 +28,7 @@ typedef enum {
     TokenTypeOther
 } token_type;
 
-void execute_command(command cmd) {
+void execute_command(command cmd, int* input_fds, int* output_fds) {
 	// Check for internal commands first
 	if ((strcmp(cmd.argv[0], "cd") == 0) || (strcmp(cmd.argv[0], "chdir") == 0)) {
 		if (chdir(cmd.argv[1]) < 0) {
@@ -48,40 +48,70 @@ void execute_command(command cmd) {
     }
 	
 	// It's not an internal command, so fork out an external command
-	pid_t pid;
-	pid = fork();
+	pid_t pid = fork();
 	if (pid < 0) {                     // error
 		perror("Forking error");
 	} else if (pid == 0) {             // child process
-        // Replace file descriptors
-        if (cmd.in_filename) {
-            int fd = open(cmd.in_filename, O_RDONLY);
+		if (input_fds) {
+			close(input_fds[1]);
+			dup2(input_fds[0], STDIN_FILENO);
+			close(input_fds[0]);
+		} else if (cmd.in_filename) {  // pipe input/output overrides chevron input/output
+			int fd = open(cmd.in_filename, O_RDONLY);
             if (fd < 0) return perror("File input error");
             dup2(fd, STDIN_FILENO); // replace STDIN with file
             close(fd);              // decrement reference count
-        }
-        if (cmd.out_filename) {
-            int flag = cmd.appending ? O_APPEND : O_TRUNC;
+		}
+		if (output_fds) {
+			close(output_fds[0]);
+			dup2(output_fds[1], STDOUT_FILENO);
+			close(output_fds[1]);
+		} else if (cmd.out_filename) {
+			int flag = cmd.appending ? O_APPEND : O_TRUNC;
             int fd = open(cmd.out_filename, O_CREAT | flag | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDOUT_FILENO); // replace STDOUT with file
             close(fd);               // decrement reference count
-        }
-        if (cmd.error_filename) {
+		}
+		if (cmd.error_filename) {
             int fd = open(cmd.error_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDERR_FILENO); // replace STDERR with file
             close(fd);               // decrement reference count
         }
-        
 		if (execvp(cmd.argv[0], cmd.argv) < 0) {
 			perror("Exec error");
 		}
-	} else {                           // parent process
-		int status;
-		if (wait(&status) < 0) {
-			perror("Waiting error");
+	} else {}    // parent process
+}
+
+void execute_commands(command *cmds, command *cmds_end) {
+	int num_cmds = cmds_end - cmds;
+	if (num_cmds == 1) {
+		execute_command(cmds[0], NULL, NULL);
+	} else {
+		int pipes[num_cmds - 1][2];
+		for (int i = 0; i < num_cmds - 1; i++) {
+			if (pipe(pipes[i]) < 0) {
+				perror("Pipe error");
+			}
 		}
+		execute_command(cmds[0], NULL, pipes[0]);
+		for (int i = 1; i < num_cmds - 1; i++) {
+			execute_command(cmds[i], pipes[i-1], pipes[i]);
+			close(pipes[i-1][0]);
+			close(pipes[i-1][1]);
+		}
+		execute_command(cmds[num_cmds - 1], pipes[num_cmds - 2], NULL);
+		close(pipes[num_cmds - 2][0]);
+		close(pipes[num_cmds - 2][1]);
+	}
+
+	int pid, status;
+	while ((pid = wait(&status)) != -1){
+		#if DEBUG
+		fprintf(stderr, "process %d exits with %d\n", pid, WEXITSTATUS(status));
+		#endif // DEBUG
 	}
 }
 
@@ -262,7 +292,7 @@ int main() {
 #endif
         
         // Display line back
-		execute_command(cmds[0]);
+		execute_commands(cmds, cmds_end);
         
         // Free line
         free(line);
