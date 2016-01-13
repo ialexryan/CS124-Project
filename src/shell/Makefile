@@ -1,4 +1,4 @@
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -std=c99
 LDFLAGS = -lreadline -lbsd
 
 OBJS = mysh.o
