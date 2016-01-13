@@ -11,20 +11,56 @@
 #include <readline/history.h>
 
 typedef struct {
+    union {
+        int descriptor;
+        char *filename;
+    };
+    bool append;
+    enum {
+        no_replacement,
+        descriptor_replacement,
+        filename_replacement
+    } type;
+} file_replacement;
+
+void set_descriptor(file_replacement *f, int descriptor) {
+    if (f->type == no_replacement) {
+        f->type = descriptor_replacement;
+        f->descriptor = descriptor;
+    } else {
+        printf("error: cannot set multiple descriptors\n");
+        exit(1);
+    }
+}
+
+void set_filename(file_replacement *f, char *filename) {
+    if (f->type == no_replacement) {
+        f->type = filename_replacement;
+        f->filename = filename;
+    } else {
+        printf("error: cannot set multiple descriptors\n");
+        exit(1);
+    }
+}
+
+typedef struct {
     char **argv;
-    char *in_filename;
-    char *out_filename;
-    char *error_filename;
-    bool appending;
+    file_replacement stdin;
+    file_replacement stdout;
+    file_replacement stderr;
 } command;
 
 typedef enum {
-    TokenTypeBeginArgument,
-    TokenTypeBeginInFile,
-    TokenTypeBeginOutFile,
-    TokenTypeBeginErrorFile,
-    TokenTypeOther
+    arg_type,
+    in_file_type,
+    out_file_type,
+    err_file_type
 } token_type;
+
+typedef enum {
+    awaiting_token_state,
+    consuming_token_state
+} parse_state;
 
 void execute_command(command cmd, int* input_fds, int* output_fds) {
 	// Check for internal commands first
@@ -55,8 +91,8 @@ void execute_command(command cmd, int* input_fds, int* output_fds) {
 			close(input_fds[1]);
 			dup2(input_fds[0], STDIN_FILENO);
 			close(input_fds[0]);
-		} else if (cmd.in_filename) {  // pipe input/output overrides chevron input/output
-			int fd = open(cmd.in_filename, O_RDONLY);
+		} else if (cmd.stdin.type == filename_replacement) {  // pipe input/output overrides chevron input/output
+			int fd = open(cmd.stdin.filename, O_RDONLY);
             if (fd < 0) return perror("File input error");
             dup2(fd, STDIN_FILENO); // replace STDIN with file
             close(fd);              // decrement reference count
@@ -65,15 +101,16 @@ void execute_command(command cmd, int* input_fds, int* output_fds) {
 			close(output_fds[0]);
 			dup2(output_fds[1], STDOUT_FILENO);
 			close(output_fds[1]);
-		} else if (cmd.out_filename) {
-			int flag = cmd.appending ? O_APPEND : O_TRUNC;
-            int fd = open(cmd.out_filename, O_CREAT | flag | O_WRONLY, 0);
+		} else if (cmd.stdout.type == filename_replacement) {
+			int flag = cmd.stdin.append ? O_APPEND : O_TRUNC;
+            int fd = open(cmd.stdout.filename, O_CREAT | flag | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDOUT_FILENO); // replace STDOUT with file
             close(fd);               // decrement reference count
 		}
-		if (cmd.error_filename) {
-            int fd = open(cmd.error_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
+		if (cmd.stderr.type == filename_replacement) {
+            int flag = cmd.stderr.append ? O_APPEND : O_TRUNC;
+            int fd = open(cmd.stderr.filename, O_CREAT | flag | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDERR_FILENO); // replace STDERR with file
             close(fd);               // decrement reference count
@@ -122,97 +159,123 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
     command *curr_cmd = cmds;
     
     // Parse input
-    token_type next_type = TokenTypeBeginArgument;
+    token_type next_type = arg_type;
+    parse_state state = awaiting_token_state;
+    
     for (char *c = line; *c != (char)0; c++) {
+        bool is_token_separator = true;
         switch (*c) {
             case '|':
                 // End of command
                 *curr_arg++ = NULL; // NULL-terminate arg list and increment
                 curr_cmd++;         // Increment to next command
                 
-                // Handle non-token pipe
                 switch (next_type) {
-                    case TokenTypeOther:
-                    case TokenTypeBeginArgument:
-                        next_type = TokenTypeBeginArgument;
+                    case arg_type:
                         break;
                         
                     default:
-                        printf("syntax error\n");
+                        // Handle invalid syntax
+                        printf("syntax error: expected descriptor\n");
                         exit(1);
+                        break;
                 }
-                *c = (char)0;
                 break;
                 
             case ' ':
             case '\t':
-                // Handle non-token whitespace
-                switch (next_type) {
-                    case TokenTypeOther:
-                        next_type = TokenTypeBeginArgument;
-                        break;
-                        
-                    default:
-                        // Extraneous spaces are O.K.
-                        break;
-                }
-                *c = (char)0;
+                // Skip
                 break;
                 
             case '<':
                 // Handle non-token in-chevron
                 switch (next_type) {
-                    case TokenTypeOther:
-                    case TokenTypeBeginArgument:
-                        next_type = TokenTypeBeginInFile;
+                    case arg_type:
+                        next_type = in_file_type;
                         break;
                         
                     default:
-                        printf("syntax error\n");
+                        // Handle invalid syntax
+                        printf("syntax error: unexpected <\n");
                         exit(1);
                 }
-                *c = (char)0;
                 break;
                 
             case '>':
                 // Handle non-token out-chevron
                 switch (next_type) {
-                    case TokenTypeOther:
-                    case TokenTypeBeginArgument:
-                        next_type = TokenTypeBeginOutFile;
+                    case arg_type:
+                        next_type = out_file_type;
                         break;
                         
-                    case TokenTypeBeginOutFile:
-                        if (!curr_cmd->appending) {
-                            curr_cmd->appending = true;
-                            break;
+                    case out_file_type:
+                        if (!curr_cmd->stdout.append) {
+                            curr_cmd->stdout.append = true;
+                        } else {
+                            printf("syntax error: unexpected >\n");
+                            exit(1);
                         }
-                        // fallthrough
+                        break;
+                        
+                    case in_file_type:
+                        if (!curr_cmd->stdin.append) {
+                            curr_cmd->stdin.append = true;
+                        } else {
+                            printf("syntax error: unexpected >\n");
+                            exit(1);
+                        }
+                        break;
                         
                     default:
-                        printf("syntax error");
+                        printf("syntax error: unexpected >\n");
                         exit(1);
                 }
-                *c = (char)0;
+                break;
+                
+            case '&':
+                c++; // increment to number
+                int num = *c - '0';
+                if (num < 0 || num > 2) {
+                    printf("syntax error: invalid file descriptor\n");
+                    exit(1);
+                }
+                switch (next_type) {
+                    case in_file_type:
+                        set_descriptor(&(curr_cmd->stdin), num);
+                        break;
+                        
+                    case out_file_type:
+                        set_descriptor(&(curr_cmd->stdout), num);
+                        break;
+                        
+                    case err_file_type:
+                        set_descriptor(&(curr_cmd->stderr), num);
+                        break;
+                        
+                    default:
+                        printf("syntax error: unexpected &\n");
+                        exit(1);
+                }
+                next_type = arg_type;
                 break;
                 
             case '0':
             case '1':
             case '2':
             {
-                char num = *c++;
-                if (*c == '>') {
+                if (*(c + 1) == '>') {
+                    char num = *c++;
                     switch (num) {
                         case '0':
-                            next_type = TokenTypeBeginInFile;
+                            next_type = in_file_type;
                             break;
                             
                         case '1':
-                            next_type = TokenTypeBeginOutFile;
+                            next_type = out_file_type;
                             break;
                             
                         case '2':
-                            next_type = TokenTypeBeginErrorFile;
+                            next_type = err_file_type;
                             break;
                             
                         default:
@@ -223,37 +286,48 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
             }
                 
             default:
-                if (next_type == TokenTypeOther) break;
-                
-                // Initialize the command if it has no argv list
-                if (!curr_cmd->argv) {
-                    // Set argv list
-                    curr_cmd->argv = curr_arg;
-                }
-                
-                switch (next_type) {
-                    case TokenTypeBeginArgument:
-                        *curr_arg++ = c; // Add argument to list and increment
-                        break;
+                is_token_separator = false;
+                switch (state) {
+                    case awaiting_token_state:
+                        state = consuming_token_state;
                         
-                    case TokenTypeBeginInFile:
-                        curr_cmd->in_filename = c;
-                        break;
+                        // Initialize the command if it has no argv list
+                        if (!curr_cmd->argv) {
+                            // Set argv list
+                            curr_cmd->argv = curr_arg;
+                        }
                         
-                    case TokenTypeBeginOutFile:
-                        curr_cmd->out_filename = c;
-                        break;
-                        
-                    case TokenTypeBeginErrorFile:
-                        curr_cmd->error_filename = c;
+                        switch (next_type) {
+                            case arg_type:
+                                *curr_arg++ = c; // Add argument to list and increment
+                                break;
+                                
+                            case in_file_type:
+                                set_filename(&(curr_cmd->stdin), c);
+                                break;
+                                
+                            case out_file_type:
+                                set_filename(&(curr_cmd->stdout), c);
+                                break;
+                                
+                            case err_file_type:
+                                set_filename(&(curr_cmd->stderr), c);
+                                break;
+                                
+                            default:
+                                exit(1);
+                        }
+
                         break;
                         
                     default:
-                        exit(1);
+                        break;
                 }
-                
-                next_type = TokenTypeOther;
                 break;
+        }
+        if (is_token_separator) {
+            *c = (char)0;
+            state = awaiting_token_state;
         }
     }
     return curr_cmd + 1;
