@@ -1,5 +1,6 @@
 // apt-get install libreadline-dev libbsd-dev
 
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <bsd/string.h>
@@ -42,6 +43,18 @@ void execute_command(command cmd) {
 	if (pid < 0) {                     // error
 		perror("Forking error");
 	} else if (pid == 0) {             // child process
+        // Replace file descriptors
+        if (cmd.in_filename) {
+            int fd = open(cmd.in_filename, O_RDONLY);
+            dup2(fd, STDIN_FILENO); // replace STDIN with file
+            close(fd);              // decrement reference count
+        }
+        if (cmd.out_filename) {
+            int fd = open(cmd.out_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
+            dup2(fd, STDOUT_FILENO); // replace STDOUT with file
+            close(fd);               // decrement reference count
+        }
+        
 		if (execvp(cmd.argv[0], cmd.argv) < 0) {
 			perror("Exec error");
 		}
