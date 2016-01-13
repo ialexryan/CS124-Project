@@ -40,7 +40,7 @@ void execute_command(command cmd) {
 		exit(0);
 	}
     if (strcmp(cmd.argv[0], "history") == 0) {
-        int i = 0;main
+        int i = 1;
         for (HIST_ENTRY **h = history_list(); *h != NULL; i++, h++) {
             printf("   %i  %s\n", i, (*h)->line);
         }
