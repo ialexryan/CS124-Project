@@ -16,6 +16,7 @@ typedef struct {
     char **argv;
     char *in_filename;
     char *out_filename;
+    bool appending;
 } command;
 
 typedef enum {
@@ -51,7 +52,8 @@ void execute_command(command cmd) {
             close(fd);              // decrement reference count
         }
         if (cmd.out_filename) {
-            int fd = open(cmd.out_filename, O_CREAT | O_TRUNC | O_WRONLY, 0);
+            int flag = cmd.appending ? O_APPEND : O_TRUNC;
+            int fd = open(cmd.out_filename, O_CREAT | flag | O_WRONLY, 0);
             if (fd < 0) return perror("File output error");
             dup2(fd, STDOUT_FILENO); // replace STDOUT with file
             close(fd);               // decrement reference count
@@ -156,6 +158,13 @@ int main() {
                         case TokenTypeBeginArgument:
                             next_type = TokenTypeBeginOutFile;
                             break;
+                        
+                        case TokenTypeBeginOutFile:
+                            if (!curr_cmd->appending) {
+                                curr_cmd->appending = true;
+                                break;
+                            }
+                            // fallthrough
                             
                         default:
                             printf("syntax error");
