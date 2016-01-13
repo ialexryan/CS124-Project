@@ -4,8 +4,30 @@
 #include <stdbool.h>
 #include <bsd/string.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+
+
+void execute_external_command(char **argv) {
+	pid_t pid;
+	pid = fork();
+	if (pid < 0) {                     // error
+		perror("Forking error");
+	} else if (pid == 0) {             // child process
+		if (execvp(argv[0], argv) < 0) {
+			perror("");
+		}
+	} else {                           // parent process
+		int status;
+		pid_t w;
+		w = wait(&status);
+		if (w < 0) {
+			perror("Waiting error");
+		}
+	}
+}
 
 int main() {
     char *line;
@@ -48,7 +70,7 @@ int main() {
         *next = NULL;
         
         // Display line back
-        execvp(argv[0], argv);
+		execute_external_command(argv);
         
         // Free line
         free(line);
