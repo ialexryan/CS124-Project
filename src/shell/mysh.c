@@ -24,15 +24,15 @@ typedef enum {
     TokenTypeOther
 } token_type;
 
-void execute_command(char **argv) {
+void execute_command(command cmd) {
 	// Check for internal commands first
-	if ((strcmp(argv[0], "cd") == 0) || (strcmp(argv[0], "chdir") == 0)) {
-		if (chdir(argv[1]) < 0) {
+	if ((strcmp(cmd.argv[0], "cd") == 0) || (strcmp(cmd.argv[0], "chdir") == 0)) {
+		if (chdir(cmd.argv[1]) < 0) {
 			perror("Chdir error");
 		}
 		return;
 	}
-	if (strcmp(argv[0], "exit") == 0) {
+	if (strcmp(cmd.argv[0], "exit") == 0) {
 		exit(0);
 	}
 	
@@ -42,7 +42,7 @@ void execute_command(char **argv) {
 	if (pid < 0) {                     // error
 		perror("Forking error");
 	} else if (pid == 0) {             // child process
-		if (execvp(argv[0], argv) < 0) {
+		if (execvp(cmd.argv[0], cmd.argv) < 0) {
 			perror("Exec error");
 		}
 	} else {                           // parent process
@@ -193,7 +193,7 @@ int main() {
 #endif
         
         // Display line back
-		execute_command(cmds[0].argv);
+		execute_command(cmds[0]);
         
         // Free line
         free(line);
