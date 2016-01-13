@@ -13,7 +13,16 @@
 
 typedef struct {
     char **argv;
+    char *in_filename;
+    char *out_filename;
 } command;
+
+typedef enum {
+    TokenTypeBeginArgument,
+    TokenTypeBeginInFile,
+    TokenTypeBeginOutFile,
+    TokenTypeOther
+} token_type;
 
 void execute_command(char **argv) {
 	// Check for internal commands first
@@ -73,34 +82,101 @@ int main() {
         command *curr_cmd = cmds;
         
         // Parse input
-        bool record_next = true;
+        token_type next_type = TokenTypeBeginArgument;
         for (char *c = line; *c != (char)0; c++) {
             switch (*c) {
                 case '|':
                     // End of command
                     *curr_arg++ = NULL; // NULL-terminate arg list and increment
                     curr_cmd++;         // Increment to next command
-                    // fallthrough
+                    
+                    // Handle non-token pipe
+                    switch (next_type) {
+                        case TokenTypeOther:
+                        case TokenTypeBeginArgument:
+                            next_type = TokenTypeBeginArgument;
+                            break;
+                            
+                        default:
+                            exit(1);
+                            break;
+                    }
+                    *c = (char)0;
+                    break;
+                    
                 case ' ':
                 case '\t':
-                    // Not an argument
-                    *c = (char)0;       // NULL-terminate argument string
-                    record_next = true; // Mark that moved to next arg
+                    // Handle non-token whitespace
+                    switch (next_type) {
+                        case TokenTypeOther:
+                            next_type = TokenTypeBeginArgument;
+                            break;
+                            
+                        default:
+                            // Extraneous spaces are O.K.
+                            break;
+                    }
+                    *c = (char)0;
+                    break;
+                    
+                case '<':
+                    // Handle non-token in-chevron
+                    switch (next_type) {
+                        case TokenTypeOther:
+                        case TokenTypeBeginArgument:
+                            next_type = TokenTypeBeginInFile;
+                            break;
+                            
+                        default:
+                            exit(1);
+                            break;
+                    }
+                    *c = (char)0;
+                    break;
+                    
+                case '>':
+                    // Handle non-token out-chevron
+                    switch (next_type) {
+                        case TokenTypeOther:
+                        case TokenTypeBeginArgument:
+                            next_type = TokenTypeBeginOutFile;
+                            break;
+                            
+                        default:
+                            exit(1);
+                            break;
+                    }
+                    *c = (char)0;
                     break;
                     
                 default:
-                    // Check if this is the start of an argument
-                    if (record_next) {
-                        // Check if command has no argv list
-                        if (!curr_cmd->argv) {
-                            // First argument in command so set up the argv list
-                            curr_cmd->argv = curr_arg;
-                        }
-                        
-                        // Record argument
-                        *curr_arg++ = c;     // Add argument to list and increment
-                        record_next = false; // Mark that argument is recorded
+                    if (next_type == TokenTypeOther) break;
+                    
+                    // Initialize the command if it has no argv list
+                    if (!curr_cmd->argv) {
+                        // Set argv list
+                        curr_cmd->argv = curr_arg;
                     }
+
+                    switch (next_type) {
+                        case TokenTypeBeginArgument:
+                            *curr_arg++ = c; // Add argument to list and increment
+                            break;
+                            
+                        case TokenTypeBeginInFile:
+                            curr_cmd->in_filename = c;
+                            break;
+                        
+                        case TokenTypeBeginOutFile:
+                            curr_cmd->out_filename = c;
+                            break;
+                        
+                        default:
+                            exit(1);
+                    }
+
+                    next_type = TokenTypeOther;
+                    break;
             }
         }
         command *cmds_end = curr_cmd + 1;
@@ -111,6 +187,8 @@ int main() {
             for (char **arg = c->argv + 1; *arg != NULL; arg++) {
                 printf("ARG: %s\n", *arg);
             }
+            if (c->in_filename) printf("IN: %s\n", c->in_filename);
+            if (c->out_filename) printf("OUT: %s\n", c->out_filename);
         }
 #endif
         
