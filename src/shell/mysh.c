@@ -17,13 +17,11 @@ void execute_external_command(char **argv) {
 		perror("Forking error");
 	} else if (pid == 0) {             // child process
 		if (execvp(argv[0], argv) < 0) {
-			perror("");
+			perror("Exec error");
 		}
 	} else {                           // parent process
 		int status;
-		pid_t w;
-		w = wait(&status);
-		if (w < 0) {
+		if (wait(&status) < 0) {
 			perror("Waiting error");
 		}
 	}
