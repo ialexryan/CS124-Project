@@ -39,6 +39,13 @@ void execute_command(command cmd) {
 	if (strcmp(cmd.argv[0], "exit") == 0) {
 		exit(0);
 	}
+    if (strcmp(cmd.argv[0], "history") == 0) {
+        int i = 0;main
+        for (HIST_ENTRY **h = history_list(); *h != NULL; i++, h++) {
+            printf("   %i  %s\n", i, (*h)->line);
+        }
+        return;
+    }
 	
 	// It's not an internal command, so fork out an external command
 	pid_t pid;
