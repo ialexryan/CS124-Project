@@ -116,6 +116,150 @@ void execute_commands(command *cmds, command *cmds_end) {
 	}
 }
 
+// Returns pointer after last command
+command *parse_commands(char *line, command *cmds, char **arg_buffer) {
+    // Set up loop variables
+    char **curr_arg = arg_buffer;
+    command *curr_cmd = cmds;
+    
+    // Parse input
+    token_type next_type = TokenTypeBeginArgument;
+    for (char *c = line; *c != (char)0; c++) {
+        switch (*c) {
+            case '|':
+                // End of command
+                *curr_arg++ = NULL; // NULL-terminate arg list and increment
+                curr_cmd++;         // Increment to next command
+                
+                // Handle non-token pipe
+                switch (next_type) {
+                    case TokenTypeOther:
+                    case TokenTypeBeginArgument:
+                        next_type = TokenTypeBeginArgument;
+                        break;
+                        
+                    default:
+                        printf("syntax error\n");
+                        exit(1);
+                }
+                *c = (char)0;
+                break;
+                
+            case ' ':
+            case '\t':
+                // Handle non-token whitespace
+                switch (next_type) {
+                    case TokenTypeOther:
+                        next_type = TokenTypeBeginArgument;
+                        break;
+                        
+                    default:
+                        // Extraneous spaces are O.K.
+                        break;
+                }
+                *c = (char)0;
+                break;
+                
+            case '<':
+                // Handle non-token in-chevron
+                switch (next_type) {
+                    case TokenTypeOther:
+                    case TokenTypeBeginArgument:
+                        next_type = TokenTypeBeginInFile;
+                        break;
+                        
+                    default:
+                        printf("syntax error\n");
+                        exit(1);
+                }
+                *c = (char)0;
+                break;
+                
+            case '>':
+                // Handle non-token out-chevron
+                switch (next_type) {
+                    case TokenTypeOther:
+                    case TokenTypeBeginArgument:
+                        next_type = TokenTypeBeginOutFile;
+                        break;
+                        
+                    case TokenTypeBeginOutFile:
+                        if (!curr_cmd->appending) {
+                            curr_cmd->appending = true;
+                            break;
+                        }
+                        // fallthrough
+                        
+                    default:
+                        printf("syntax error");
+                        exit(1);
+                }
+                *c = (char)0;
+                break;
+                
+            case '0':
+            case '1':
+            case '2':
+            {
+                char num = *c++;
+                if (*c == '>') {
+                    switch (num) {
+                        case '0':
+                            next_type = TokenTypeBeginInFile;
+                            break;
+                            
+                        case '1':
+                            next_type = TokenTypeBeginOutFile;
+                            break;
+                            
+                        case '2':
+                            next_type = TokenTypeBeginErrorFile;
+                            break;
+                            
+                        default:
+                            break;
+                    }
+                    break;
+                } // otherwise read the number normally
+            }
+                
+            default:
+                if (next_type == TokenTypeOther) break;
+                
+                // Initialize the command if it has no argv list
+                if (!curr_cmd->argv) {
+                    // Set argv list
+                    curr_cmd->argv = curr_arg;
+                }
+                
+                switch (next_type) {
+                    case TokenTypeBeginArgument:
+                        *curr_arg++ = c; // Add argument to list and increment
+                        break;
+                        
+                    case TokenTypeBeginInFile:
+                        curr_cmd->in_filename = c;
+                        break;
+                        
+                    case TokenTypeBeginOutFile:
+                        curr_cmd->out_filename = c;
+                        break;
+                        
+                    case TokenTypeBeginErrorFile:
+                        curr_cmd->error_filename = c;
+                        break;
+                        
+                    default:
+                        exit(1);
+                }
+                
+                next_type = TokenTypeOther;
+                break;
+        }
+    }
+    return curr_cmd + 1;
+}
+
 int main() {
     char *line;
     char prompt[80], login_buf[80], cwd_buf[80];
@@ -140,146 +284,8 @@ int main() {
         command cmds[100] = {{0}};
         char *arg_buffer[100] = {0}; // NULL-separated arg lists
         
-        // Set up loop variables
-        char **curr_arg = arg_buffer;
-        command *curr_cmd = cmds;
-        
-        // Parse input
-        token_type next_type = TokenTypeBeginArgument;
-        for (char *c = line; *c != (char)0; c++) {
-            switch (*c) {
-                case '|':
-                    // End of command
-                    *curr_arg++ = NULL; // NULL-terminate arg list and increment
-                    curr_cmd++;         // Increment to next command
-                    
-                    // Handle non-token pipe
-                    switch (next_type) {
-                        case TokenTypeOther:
-                        case TokenTypeBeginArgument:
-                            next_type = TokenTypeBeginArgument;
-                            break;
-                            
-                        default:
-                            printf("syntax error\n");
-                            exit(1);
-                    }
-                    *c = (char)0;
-                    break;
-                    
-                case ' ':
-                case '\t':
-                    // Handle non-token whitespace
-                    switch (next_type) {
-                        case TokenTypeOther:
-                            next_type = TokenTypeBeginArgument;
-                            break;
-                            
-                        default:
-                            // Extraneous spaces are O.K.
-                            break;
-                    }
-                    *c = (char)0;
-                    break;
-                    
-                case '<':
-                    // Handle non-token in-chevron
-                    switch (next_type) {
-                        case TokenTypeOther:
-                        case TokenTypeBeginArgument:
-                            next_type = TokenTypeBeginInFile;
-                            break;
-                            
-                        default:
-                            printf("syntax error\n");
-                            exit(1);
-                    }
-                    *c = (char)0;
-                    break;
-                    
-                case '>':
-                    // Handle non-token out-chevron
-                    switch (next_type) {
-                        case TokenTypeOther:
-                        case TokenTypeBeginArgument:
-                            next_type = TokenTypeBeginOutFile;
-                            break;
-                        
-                        case TokenTypeBeginOutFile:
-                            if (!curr_cmd->appending) {
-                                curr_cmd->appending = true;
-                                break;
-                            }
-                            // fallthrough
-                            
-                        default:
-                            printf("syntax error");
-                            exit(1);
-                    }
-                    *c = (char)0;
-                    break;
-                    
-                case '0':
-                case '1':
-                case '2':
-                {
-                    char num = *c++;
-                    if (*c == '>') {
-                        switch (num) {
-                            case '0':
-                                next_type = TokenTypeBeginInFile;
-                                break;
-                                
-                            case '1':
-                                next_type = TokenTypeBeginOutFile;
-                                break;
-                                
-                            case '2':
-                                next_type = TokenTypeBeginErrorFile;
-                                break;
-                                
-                            default:
-                                break;
-                        }
-                        break;
-                    } // otherwise read the number normally
-                }
-                    
-                default:
-                    if (next_type == TokenTypeOther) break;
-                    
-                    // Initialize the command if it has no argv list
-                    if (!curr_cmd->argv) {
-                        // Set argv list
-                        curr_cmd->argv = curr_arg;
-                    }
-
-                    switch (next_type) {
-                        case TokenTypeBeginArgument:
-                            *curr_arg++ = c; // Add argument to list and increment
-                            break;
-                            
-                        case TokenTypeBeginInFile:
-                            curr_cmd->in_filename = c;
-                            break;
-                        
-                        case TokenTypeBeginOutFile:
-                            curr_cmd->out_filename = c;
-                            break;
-
-                        case TokenTypeBeginErrorFile:
-                            curr_cmd->error_filename = c;
-                            break;
-
-                        default:
-                            exit(1);
-                    }
-
-                    next_type = TokenTypeOther;
-                    break;
-            }
-        }
-        command *cmds_end = curr_cmd + 1;
+        // Parse commands
+        command *cmds_end = parse_commands(line, cmds, arg_buffer);
         
 #if DEBUG
         for (command *c = cmds; c < cmds_end; c++) {
