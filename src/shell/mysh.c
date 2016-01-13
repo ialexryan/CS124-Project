@@ -10,8 +10,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#define DEBUG 0
-
 typedef struct {
     char **argv;
     char *in_filename;
@@ -117,6 +115,7 @@ void execute_commands(command *cmds, command *cmds_end) {
 }
 
 // Returns pointer after last command
+// arg_buffer will store a NULL-seperated collection of arg lists
 command *parse_commands(char *line, command *cmds, char **arg_buffer) {
     // Set up loop variables
     char **curr_arg = arg_buffer;
@@ -282,21 +281,10 @@ int main() {
         
         // Set up array of commands and arguments
         command cmds[100] = {{0}};
-        char *arg_buffer[100] = {0}; // NULL-separated arg lists
+        char *arg_buffer[100] = {0};
         
         // Parse commands
         command *cmds_end = parse_commands(line, cmds, arg_buffer);
-        
-#if DEBUG
-        for (command *c = cmds; c < cmds_end; c++) {
-            printf("COMMAND: %s\n", c->argv[0]);
-            for (char **arg = c->argv + 1; *arg != NULL; arg++) {
-                printf("ARG: %s\n", *arg);
-            }
-            if (c->in_filename) printf("IN: %s\n", c->in_filename);
-            if (c->out_filename) printf("OUT: %s\n", c->out_filename);
-        }
-#endif
         
         // Display line back
 		execute_commands(cmds, cmds_end);
