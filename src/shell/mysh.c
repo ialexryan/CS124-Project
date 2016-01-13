@@ -31,7 +31,8 @@ typedef enum {
 void execute_command(command cmd, int* input_fds, int* output_fds) {
 	// Check for internal commands first
 	if ((strcmp(cmd.argv[0], "cd") == 0) || (strcmp(cmd.argv[0], "chdir") == 0)) {
-		if (chdir(cmd.argv[1]) < 0) {
+		char *dest = cmd.argv[1] ? cmd.argv[1] : getenv("HOME");  // If no argument is given, go to user's homedir
+		if (chdir(dest) < 0) {
 			perror("Chdir error");
 		}
 		return;
