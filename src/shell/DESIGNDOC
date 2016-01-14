@@ -132,9 +132,18 @@ enum with associated data that specifies the type of replacement.
 >> process, and going through the execution of programs a, b and c.
 >> Keep your description of each process' responsibilities limited to
 >> ~25 words or less.
+   For cases where there are multiple commands, the shell process creates
+   pipes (one fewer than the number of commands) and stores the necessary
+   information about them in the appropriate command structs. Then when
+   the commands are forked, the child process replaces its stdin/out file
+   descriptors as necessary and then executes its command. The parent process
+   is responsible for closing the pipe file descriptors.
 
 >> A5: Similarly, describe the details of how terminated processes are
 >> reaped in the example command "a | b | c".
+   After the pipes are set up and the commands are executed, the shell
+   wait()'s for child processes until there are no more child processes
+   to reap.
 
 >> A6: Similarly, describe which processes are responsible for setting
 >> up the redirections in the example command
