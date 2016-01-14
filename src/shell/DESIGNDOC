@@ -42,6 +42,7 @@ which parts.
    Make sure that each member's total time is listed.
    
    Alex Ryan spent approximately 10 hours on this assignment.
+   Jaden Geller spent approximately 10 hours on this assignment.
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -52,6 +53,13 @@ which parts.
    - Internal commands
    - Executing external commands and forking/waiting
    - Pipes
+
+   Jaden Geller implemented:
+   - Parsing
+   - File redirection
+   - File appending
+   - stdin/out/err redirection
+   - Readline history feature
 
 ---- DATA STRUCTURES ----
 
