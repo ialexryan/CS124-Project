@@ -385,6 +385,12 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
             state = awaiting_token_state;
         }
     }
+    
+    if (curr_cmd == cmds && curr_cmd->argv == NULL) {
+        // Empty input, return nothing
+        return curr_cmd;
+    }
+    
     return curr_cmd + 1;
 }
 
