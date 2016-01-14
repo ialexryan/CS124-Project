@@ -106,16 +106,26 @@ penalized.  We can't fix things until we know about them.  :-)
 
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
+   Alex: It was about right on both difficulty and time.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+   Alex: Absolutely - it was a good refresher on forking, and I haven't ever
+         built an application directly with Unix API's before.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+   Alex: Parsing - somehow ends up being a part of every project in every class
+         despite not having anything to do with the subject material. Ends up
+         being a waste of time because you just make a single-use state machine
+         and once you've done that once, doing it over and over again in each class
+         is really tedious.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+   Alex: More information about how fork() and wait() work/interact would have
+         been very useful. 
 
 >> Do you have any suggestions for the instructor and/or TAs to more
 >> effectively assist students, either for future quarters or the remaining
