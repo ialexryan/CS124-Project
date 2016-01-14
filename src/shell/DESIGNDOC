@@ -40,9 +40,18 @@ which parts.
 
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
+   
+   Alex Ryan spent approximately 10 hours on this assignment.
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
+   
+   Alex Ryan implemented:
+   - Core use of readline framework
+   - Prompt
+   - Internal commands
+   - Executing external commands and forking/waiting
+   - Pipes
 
 ---- DATA STRUCTURES ----
 
