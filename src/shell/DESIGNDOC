@@ -132,18 +132,20 @@ enum with associated data that specifies the type of replacement.
 >> process, and going through the execution of programs a, b and c.
 >> Keep your description of each process' responsibilities limited to
 >> ~25 words or less.
-   For cases where there are multiple commands, the shell process creates
-   pipes (one fewer than the number of commands) and stores the necessary
-   information about them in the appropriate command structs. Then when
-   the commands are forked, the child process replaces its stdin/out file
-   descriptors as necessary and then executes its command. The parent process
-   is responsible for closing the pipe file descriptors.
+
+For cases where there are multiple commands, the shell process creates
+pipes (one fewer than the number of commands) and stores the necessary
+information about them in the appropriate command structs. Then when
+the commands are forked, the child process replaces its stdin/out file
+descriptors as necessary and then executes its command. The parent process
+is responsible for closing the pipe file descriptors.
 
 >> A5: Similarly, describe the details of how terminated processes are
 >> reaped in the example command "a | b | c".
-   After the pipes are set up and the commands are executed, the shell
-   wait()'s for child processes until there are no more child processes
-   to reap.
+
+After the pipes are set up and the commands are executed, the shell
+wait()'s for child processes until there are no more child processes
+to reap.
 
 >> A6: Similarly, describe which processes are responsible for setting
 >> up the redirections in the example command
@@ -160,10 +162,10 @@ file redirection.
 >> A7: Why must the chdir and exit commands be implemented as built-in
 >> functions, rather than external programs?
 
-   Chdir and exit are the only commands that modify the state of the shell itself.
-   In the case of exit the shell program has to end itself, and in the case
-   of chdir the shell process has to ask the OS to change its current working
-   directory.
+Chdir and exit are the only commands that modify the state of the shell itself.
+In the case of exit the shell program has to end itself, and in the case
+of chdir the shell process has to ask the OS to change its current working
+directory.
 
 >> A8: Why did you ultimately choose this design?  In what ways is it
 >> superior to other designs you considered as you developed your solution?
@@ -198,11 +200,13 @@ penalized.  We can't fix things until we know about them.  :-)
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
    Alex: It was about right on both difficulty and time.
+   Jaden: Agreed.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
    Alex: Absolutely - it was a good refresher on forking, and I haven't ever
          built an application directly with Unix API's before.
+   Jaden: Definitely! It helped me become much more familiar with Unix APIs.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
@@ -211,12 +215,17 @@ penalized.  We can't fix things until we know about them.  :-)
          being a waste of time because you just make a single-use state machine
          and once you've done that once, doing it over and over again in each class
          is really tedious.
+   Jaden: I thought that the assignment was pretty reasonable overall. I agree that
+          I'm pretty bored of parsing by now, but building an efficient solution was
+          fun.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
    Alex: More information about how fork() and wait() work/interact would have
          been very useful. 
+   Jaden: Information about how forgetting to close a file descriptor can cause
+          piped things to not return.
 
 >> Do you have any suggestions for the instructor and/or TAs to more
 >> effectively assist students, either for future quarters or the remaining
