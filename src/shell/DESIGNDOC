@@ -40,9 +40,26 @@ which parts.
 
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
+   
+   Alex Ryan spent approximately 10 hours on this assignment.
+   Jaden Geller spent approximately 10 hours on this assignment.
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
+   
+   Alex Ryan implemented:
+   - Core use of readline framework
+   - Prompt
+   - Internal commands
+   - Executing external commands and forking/waiting
+   - Pipes
+
+   Jaden Geller implemented:
+   - Parsing
+   - File redirection
+   - File appending
+   - stdin/out/err redirection
+   - Readline history feature
 
 ---- DATA STRUCTURES ----
 
@@ -51,16 +68,61 @@ which parts.
 >> command "a arg1 arg2 | b arg1 | c arg1 arg2 arg3".  How does your
 >> shell internally represent such a command?
 
+Commands are parsed using a simplistic state machine. Essentially, 
+we loop over each character of the input and, based on both the
+character and the current state, we determine what to do. We don't
+actually allocate new memory and copy the arguments into it. We simply
+null-out separator characters between arguments, and use these remaining
+strings in-place. In the specific example case, the resulting memory 
+block will look as follows after parsing, where * represents NULL:
+
+"a*arg1*arg2***b*arg1***c*arg1*arg2*arg3"
+
+We represent each command (the things separated by pipes) using a 
+`command` data structure. This stores a pointer to a list of
+arguments and information about the necessary file redirection.
+This list of arguments is stored on a stack-allocated array.
+Essentially, as we build commands, we add arguments to the array.
+When we reach a pipe (and thus finish an `argv` list), we place
+a NULL in the array and continue. This way, we can use the same
+shared buffer space for all argument lists.
+
+When we encounter the first character of a token (anything that
+isn't a specially handled other character), we place a pointer to
+it (as it is the beginning of the string) in the `argv` list
+before we even read the rest of it. No special actions are taken
+after tokens are read; the important part is at the beginning.
+
 >> A2: Now, given the command:
 >> "a arg1 arg2 < inp.txt | b arg1 | c arg1 arg2 arg3 > out.txt"
 >> Briefly explain specifically how the redirections are parsed and
 >> represented, and by what processes.
+
+When a pipe is encountered, we simply increment the variable representing
+the current command we're parsing and setup the next command. When the
+parse function returns, it returns the pointer after the last command
+parsed so that the pipes can be later set up and the list of commands
+can be executed.
+
+When a chevron is encountered, a enum is changed to remember that
+the next token we read is meant to be stored as a certain kind of
+redirection instead of as a normal argument. Then, when we read the
+first character of the token, we store the pointer to it not in the
+argv list, but instead in the commands stdin/stdout/stderr replacement
+property.
 
 ---- ALGORITHMS ----
 
 >> A3: Illustrate how you solved the problem of setting up
 >> redirection in a simple command like "a < inp.txt > out.txt", by
 >> describing what process takes care of the redirection and when.
+
+After forking, a conditional block that only executes on the child
+process opens the files needed for input and output redirection.
+The command data structure contains a pointer to the filename that
+ought to act as the replacement. We're also able to perform `1>&2`
+style replacements because the replacement struct is actually an
+enum with associated data that specifies the type of replacement.
 
 >> A4: Illustrate how you solved the problem of setting up the pipes
 >> between multiple operations in a single command, by describing
@@ -71,20 +133,60 @@ which parts.
 >> Keep your description of each process' responsibilities limited to
 >> ~25 words or less.
 
+For cases where there are multiple commands, the shell process creates
+pipes (one fewer than the number of commands) and stores the necessary
+information about them in the appropriate command structs. Then when
+the commands are forked, the child process replaces its stdin/out file
+descriptors as necessary and then executes its command. The parent process
+is responsible for closing the pipe file descriptors.
+
 >> A5: Similarly, describe the details of how terminated processes are
 >> reaped in the example command "a | b | c".
+
+After the pipes are set up and the commands are executed, the shell
+wait()'s for child processes until there are no more child processes
+to reap.
 
 >> A6: Similarly, describe which processes are responsible for setting
 >> up the redirections in the example command
 >> "a < inp.txt | b | c > out.txt".
+
+The parent process creates the pipe file descriptors and stores them inside
+the `file_replacement` struct. The child process, after being forked,
+will `dup` the descriptors with the necessary stdin/stdout/stderr, and will
+close the complimentary descriptor. The child process also sets up
+file redirection.
 
 ---- RATIONALE ----
 
 >> A7: Why must the chdir and exit commands be implemented as built-in
 >> functions, rather than external programs?
 
+Chdir and exit are the only commands that modify the state of the shell itself.
+In the case of exit the shell program has to end itself, and in the case
+of chdir the shell process has to ask the OS to change its current working
+directory.
+
 >> A8: Why did you ultimately choose this design?  In what ways is it
 >> superior to other designs you considered as you developed your solution?
+
+The parser design was chosen to be very efficient if not very versatile. Although we
+were able to implement many of the extra credit points, some required gross hacks in
+our parser. For example, since numbers could be part of an argument or a `1>2&`
+redirection, we have to perform lookahead to decide what to do. The parser design
+though, overall, provides a very time and memory efficient way to execute commands
+as it doesn't require moving copying strings around---everything was done in place.
+In practice, this design tradeoff is probably not worth the efficiency gains as
+shell commands tend to be relatively short, but it did prove to be an interesting
+implementation.
+
+The command data structure went through many iteration before we arrived at the
+current design. In conjunction with the file_replacement structure, it allows
+us to easily specify different sorts of redirection during the parsing stage and
+the pipe-setting-up phase, and take care of turing these into file descriptors
+later and dup-ing them later. In executing the list of commands, we simply loop
+over the array and set up pipes between adjacent commands, and then loop over
+the commands and call the execute function on them.
 
 			  SURVEY QUESTIONS
 			  ================
@@ -97,16 +199,33 @@ penalized.  We can't fix things until we know about them.  :-)
 
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
+   Alex: It was about right on both difficulty and time.
+   Jaden: Agreed.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+   Alex: Absolutely - it was a good refresher on forking, and I haven't ever
+         built an application directly with Unix API's before.
+   Jaden: Definitely! It helped me become much more familiar with Unix APIs.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+   Alex: Parsing - somehow ends up being a part of every project in every class
+         despite not having anything to do with the subject material. Ends up
+         being a waste of time because you just make a single-use state machine
+         and once you've done that once, doing it over and over again in each class
+         is really tedious.
+   Jaden: I thought that the assignment was pretty reasonable overall. I agree that
+          I'm pretty bored of parsing by now, but building an efficient solution was
+          fun.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+   Alex: More information about how fork() and wait() work/interact would have
+         been very useful. 
+   Jaden: Information about how forgetting to close a file descriptor can cause
+          piped things to not return.
 
 >> Do you have any suggestions for the instructor and/or TAs to more
 >> effectively assist students, either for future quarters or the remaining
