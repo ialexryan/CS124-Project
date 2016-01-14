@@ -161,6 +161,7 @@ void execute_command(command cmd) {
         // Execute command with args
         if (execvp(cmd.argv[0], cmd.argv) < 0) {
             perror(cmd.argv[0]);
+            exit(1);
         }
     }
     else { // parent process
