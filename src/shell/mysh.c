@@ -10,18 +10,52 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#define DEBUG 0
+
 typedef struct {
     union {
         int descriptor;
         char *filename;
     };
     bool append;
+    int pair_descriptor;
     enum {
         no_replacement,
         descriptor_replacement,
+        pipe_replacement,
         filename_replacement
     } type;
 } file_replacement;
+
+typedef struct {
+    char **argv;
+    file_replacement stdin;
+    file_replacement stdout;
+    file_replacement stderr;
+} command;
+
+typedef enum {
+    arg_type,
+    in_file_type,
+    out_file_type,
+    err_file_type
+} token_type;
+
+typedef enum {
+    awaiting_token_state,
+    consuming_token_state
+} parse_state;
+
+void set_pipe(file_replacement *f, int descriptor, int pair_descriptor) {
+    if (f->type == no_replacement) {
+        f->type = pipe_replacement;
+        f->descriptor = descriptor;
+        f->pair_descriptor = pair_descriptor;
+    } else {
+        printf("error: cannot set multiple descriptors\n");
+        exit(1);
+    }
+}
 
 void set_descriptor(file_replacement *f, int descriptor) {
     if (f->type == no_replacement) {
@@ -43,37 +77,68 @@ void set_filename(file_replacement *f, char *filename) {
     }
 }
 
-typedef struct {
-    char **argv;
-    file_replacement stdin;
-    file_replacement stdout;
-    file_replacement stderr;
-} command;
+void close_pair_pipe(file_replacement replacement) {
+    if (replacement.type == pipe_replacement) {
+        if (close(replacement.descriptor) < 0) {
+            perror("Pipe error");
+        }
+    }
+}
 
-typedef enum {
-    arg_type,
-    in_file_type,
-    out_file_type,
-    err_file_type
-} token_type;
+void replace_std_file(int descriptor, file_replacement replacement) {
+    int fd;
+    switch (replacement.type) {
+        case pipe_replacement:
+        case descriptor_replacement: {
+            fd = replacement.descriptor;
+            break;
+        }
+    
+        case filename_replacement: {
+            switch (descriptor) {
+                case STDIN_FILENO: {
+                    fd = open(replacement.filename, O_RDONLY);
+                    break;
+                }
+                    
+                case STDOUT_FILENO:
+                case STDERR_FILENO: {
+                    int flag = replacement.append ? O_APPEND : O_TRUNC;
+                    fd = open(replacement.filename, O_CREAT | flag | O_WRONLY, 0);
+                    break;
+                }
+                    
+                default:
+                    // Must be a std descriptor
+                    exit(0);
+            }
+            if (fd < 0) return perror("File input error");
+            break;
+        }
+            
+        default:
+            // Nothing to do
+            return;
+    }
 
-typedef enum {
-    awaiting_token_state,
-    consuming_token_state
-} parse_state;
+    // Replace descriptor with file
+    if (dup2(fd, descriptor) < 0 || close(fd) < 0) {
+        perror("File descriptor error");
+    }
+}
 
-void execute_command(command cmd, int* input_fds, int* output_fds) {
-	// Check for internal commands first
-	if ((strcmp(cmd.argv[0], "cd") == 0) || (strcmp(cmd.argv[0], "chdir") == 0)) {
-		char *dest = cmd.argv[1] ? cmd.argv[1] : getenv("HOME");  // If no argument is given, go to user's homedir
-		if (chdir(dest) < 0) {
-			perror("Chdir error");
-		}
-		return;
-	}
-	if (strcmp(cmd.argv[0], "exit") == 0) {
-		exit(0);
-	}
+void execute_command(command cmd) {
+    // Check for internal commands first
+    if ((strcmp(cmd.argv[0], "cd") == 0) || (strcmp(cmd.argv[0], "chdir") == 0)) {
+        char *dest = cmd.argv[1] ? cmd.argv[1] : getenv("HOME");  // If no argument is given, go to user's homedir
+        if (chdir(dest) < 0) {
+            perror("Chdir error");
+        }
+        return;
+    }
+    if (strcmp(cmd.argv[0], "exit") == 0) {
+        exit(0);
+    }
     if (strcmp(cmd.argv[0], "history") == 0) {
         int i = 1;
         for (HIST_ENTRY **h = history_list(); *h != NULL; i++, h++) {
@@ -81,68 +146,45 @@ void execute_command(command cmd, int* input_fds, int* output_fds) {
         }
         return;
     }
-	
-	// It's not an internal command, so fork out an external command
-	pid_t pid = fork();
-	if (pid < 0) {                     // error
-		perror("Forking error");
-	} else if (pid == 0) {             // child process
-		if (input_fds) {
-			close(input_fds[1]);
-			dup2(input_fds[0], STDIN_FILENO);
-			close(input_fds[0]);
-		} else if (cmd.stdin.type == filename_replacement) {  // pipe input/output overrides chevron input/output
-			int fd = open(cmd.stdin.filename, O_RDONLY);
-            if (fd < 0) return perror("File input error");
-            dup2(fd, STDIN_FILENO); // replace STDIN with file
-            close(fd);              // decrement reference count
-		}
-		if (output_fds) {
-			close(output_fds[0]);
-			dup2(output_fds[1], STDOUT_FILENO);
-			close(output_fds[1]);
-		} else if (cmd.stdout.type == filename_replacement) {
-			int flag = cmd.stdin.append ? O_APPEND : O_TRUNC;
-            int fd = open(cmd.stdout.filename, O_CREAT | flag | O_WRONLY, 0);
-            if (fd < 0) return perror("File output error");
-            dup2(fd, STDOUT_FILENO); // replace STDOUT with file
-            close(fd);               // decrement reference count
-		}
-		if (cmd.stderr.type == filename_replacement) {
-            int flag = cmd.stderr.append ? O_APPEND : O_TRUNC;
-            int fd = open(cmd.stderr.filename, O_CREAT | flag | O_WRONLY, 0);
-            if (fd < 0) return perror("File output error");
-            dup2(fd, STDERR_FILENO); // replace STDERR with file
-            close(fd);               // decrement reference count
+
+    // It's not an internal command, so fork out an external command
+    pid_t pid = fork();
+    if (pid < 0) { // error
+        perror("Forking error");
+    }
+    else if (pid == 0) { // child process
+        // Replace file descriptor
+        replace_std_file(STDIN_FILENO, cmd.stdin);
+        replace_std_file(STDOUT_FILENO, cmd.stdout);
+        replace_std_file(STDERR_FILENO, cmd.stderr);
+        
+        // Execute command with args
+        if (execvp(cmd.argv[0], cmd.argv) < 0) {
+            perror(cmd.argv[0]);
         }
-		if (execvp(cmd.argv[0], cmd.argv) < 0) {
-			perror("Exec error");
-		}
-	} else {}    // parent process
+    }
+    else { // parent process
+        close_pair_pipe(cmd.stdin);
+        close_pair_pipe(cmd.stdout);
+        close_pair_pipe(cmd.stderr);
+    }
 }
 
-void execute_commands(command *cmds, command *cmds_end) {
-	int num_cmds = cmds_end - cmds;
-	if (num_cmds == 1) {
-		execute_command(cmds[0], NULL, NULL);
-	} else {
-		int pipes[num_cmds - 1][2];
-		for (int i = 0; i < num_cmds - 1; i++) {
-			if (pipe(pipes[i]) < 0) {
-				perror("Pipe error");
-			}
-		}
-		execute_command(cmds[0], NULL, pipes[0]);
-		for (int i = 1; i < num_cmds - 1; i++) {
-			execute_command(cmds[i], pipes[i-1], pipes[i]);
-			close(pipes[i-1][0]);
-			close(pipes[i-1][1]);
-		}
-		execute_command(cmds[num_cmds - 1], pipes[num_cmds - 2], NULL);
-		close(pipes[num_cmds - 2][0]);
-		close(pipes[num_cmds - 2][1]);
-	}
+void execute_command_list(command *cmds, command *cmds_end) {
+    // Create pipe buffer
+    for (command *lhs = cmds, *rhs = cmds + 1; rhs < cmds_end; lhs++, rhs++) {
+        int pipes[2];
+        if (pipe(pipes) < 0) perror("Pipe error");
+        set_pipe(&(lhs->stdout), pipes[1], pipes[0]);
+        set_pipe(&(rhs->stdin), pipes[0], pipes[1]);
+    }
+    
+    // Execute individual commands
+    for (command *c = cmds; c < cmds_end; c++) {
+        execute_command(*c);
+    }
 
+    // Wait for child processes to quit
 	int pid, status;
 	while ((pid = wait(&status)) != -1){
 		#if DEBUG
@@ -217,9 +259,9 @@ command *parse_commands(char *line, command *cmds, char **arg_buffer) {
                         }
                         break;
                         
-                    case in_file_type:
-                        if (!curr_cmd->stdin.append) {
-                            curr_cmd->stdin.append = true;
+                    case err_file_type:
+                        if (!curr_cmd->stderr.append) {
+                            curr_cmd->stderr.append = true;
                         } else {
                             printf("syntax error: unexpected >\n");
                             exit(1);
@@ -374,7 +416,7 @@ int main() {
         command *cmds_end = parse_commands(line, cmds, arg_buffer);
         
         // Display line back
-		execute_commands(cmds, cmds_end);
+		execute_command_list(cmds, cmds_end);
         
         // Free line
         free(line);
