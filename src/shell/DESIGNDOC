@@ -117,6 +117,13 @@ property.
 >> redirection in a simple command like "a < inp.txt > out.txt", by
 >> describing what process takes care of the redirection and when.
 
+After forking, a conditional block that only executes on the child
+process opens the files needed for input and output redirection.
+The command data structure contains a pointer to the filename that
+ought to act as the replacement. We're also able to perform `1>&2`
+style replacements because the replacement struct is actually an
+enum with associated data that specifies the type of replacement.
+
 >> A4: Illustrate how you solved the problem of setting up the pipes
 >> between multiple operations in a single command, by describing
 >> what each process is responsible for.  For example, given the
@@ -133,6 +140,12 @@ property.
 >> up the redirections in the example command
 >> "a < inp.txt | b | c > out.txt".
 
+The parent process creates the pipe file descriptors and stores them inside
+the `file_replacement` struct. The child process, after being forked,
+will `dup` the descriptors with the necessary stdin/stdout/stderr, and will
+close the complimentary descriptor. The child process also sets up
+file redirection.
+
 ---- RATIONALE ----
 
 >> A7: Why must the chdir and exit commands be implemented as built-in
@@ -145,6 +158,24 @@ property.
 
 >> A8: Why did you ultimately choose this design?  In what ways is it
 >> superior to other designs you considered as you developed your solution?
+
+The parser design was chosen to be very efficient if not very versatile. Although we
+were able to implement many of the extra credit points, some required gross hacks in
+our parser. For example, since numbers could be part of an argument or a `1>2&`
+redirection, we have to perform lookahead to decide what to do. The parser design
+though, overall, provides a very time and memory efficient way to execute commands
+as it doesn't require moving copying strings around---everything was done in place.
+In practice, this design tradeoff is probably not worth the efficiency gains as
+shell commands tend to be relatively short, but it did prove to be an interesting
+implementation.
+
+The command data structure went through many iteration before we arrived at the
+current design. In conjunction with the file_replacement structure, it allows
+us to easily specify different sorts of redirection during the parsing stage and
+the pipe-setting-up phase, and take care of turing these into file descriptors
+later and dup-ing them later. In executing the list of commands, we simply loop
+over the array and set up pipes between adjacent commands, and then loop over
+the commands and call the execute function on them.
 
 			  SURVEY QUESTIONS
 			  ================
