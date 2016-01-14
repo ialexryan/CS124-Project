@@ -91,6 +91,10 @@ which parts.
 
 >> A7: Why must the chdir and exit commands be implemented as built-in
 >> functions, rather than external programs?
+   Chdir and exit are the only commands that modify the state of the shell itself.
+   In the case of exit the shell program has to end itself, and in the case
+   of chdir the shell process has to ask the OS to change its current working
+   directory.
 
 >> A8: Why did you ultimately choose this design?  In what ways is it
 >> superior to other designs you considered as you developed your solution?
