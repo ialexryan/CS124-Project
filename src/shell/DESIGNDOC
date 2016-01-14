@@ -68,10 +68,48 @@ which parts.
 >> command "a arg1 arg2 | b arg1 | c arg1 arg2 arg3".  How does your
 >> shell internally represent such a command?
 
+Commands are parsed using a simplistic state machine. Essentially, 
+we loop over each character of the input and, based on both the
+character and the current state, we determine what to do. We don't
+actually allocate new memory and copy the arguments into it. We simply
+null-out separator characters between arguments, and use these remaining
+strings in-place. In the specific example case, the resulting memory 
+block will look as follows after parsing, where * represents NULL:
+
+"a*arg1*arg2***b*arg1***c*arg1*arg2*arg3"
+
+We represent each command (the things separated by pipes) using a 
+`command` data structure. This stores a pointer to a list of
+arguments and information about the necessary file redirection.
+This list of arguments is stored on a stack-allocated array.
+Essentially, as we build commands, we add arguments to the array.
+When we reach a pipe (and thus finish an `argv` list), we place
+a NULL in the array and continue. This way, we can use the same
+shared buffer space for all argument lists.
+
+When we encounter the first character of a token (anything that
+isn't a specially handled other character), we place a pointer to
+it (as it is the beginning of the string) in the `argv` list
+before we even read the rest of it. No special actions are taken
+after tokens are read; the important part is at the beginning.
+
 >> A2: Now, given the command:
 >> "a arg1 arg2 < inp.txt | b arg1 | c arg1 arg2 arg3 > out.txt"
 >> Briefly explain specifically how the redirections are parsed and
 >> represented, and by what processes.
+
+When a pipe is encountered, we simply increment the variable representing
+the current command we're parsing and setup the next command. When the
+parse function returns, it returns the pointer after the last command
+parsed so that the pipes can be later set up and the list of commands
+can be executed.
+
+When a chevron is encountered, a enum is changed to remember that
+the next token we read is meant to be stored as a certain kind of
+redirection instead of as a normal argument. Then, when we read the
+first character of the token, we store the pointer to it not in the
+argv list, but instead in the commands stdin/stdout/stderr replacement
+property.
 
 ---- ALGORITHMS ----
 
@@ -99,6 +137,7 @@ which parts.
 
 >> A7: Why must the chdir and exit commands be implemented as built-in
 >> functions, rather than external programs?
+
    Chdir and exit are the only commands that modify the state of the shell itself.
    In the case of exit the shell program has to end itself, and in the case
    of chdir the shell process has to ask the OS to change its current working
