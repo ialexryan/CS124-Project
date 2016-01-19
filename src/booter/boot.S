@@ -45,7 +45,7 @@ boot_start:
 	call	print_str
 
 	pushl $0x0
-	pushl $0x0
+	pushl $0x1
 	pushl $0x20000000 #maybe PROGRAM_BASE_ADDR instead?
 	pushl $0x00010010 #(word)sectors to load; (byte)zero; (byte)size of DAP (16)
 
