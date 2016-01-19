@@ -1,4 +1,4 @@
-/* Helpful constants for use in the bootloader. */
+# Helpful constants for use in the bootloader.
 #include "boot.h"
 
 	#=====================================================================
@@ -21,7 +21,7 @@
 	# We choose 0x00020000 (2000:0000 or equivalent), just because.  This
 	# would give us hundreds of KB of memory to use, but we won't use
 	# even a fraction of that space.
-	# 
+	#
 	# At this point, %dl will be the drive number of the boot device
 	# (i.e. the disk that the bootloader # was loaded off of).
 	# This allows us to load additional data from the boot disk.
@@ -44,12 +44,18 @@ boot_start:
 	mov	$STR_LOADING, %si
 	call	print_str
 
-	#---------------------------------------------------------------------
-	# TODO:  Load the remainder of the program into memory using int 13h
-	#        "Extended Read Operation."  If it fails, jump to boot_fail.
-	#
-	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.
-	#---------------------------------------------------------------------
+	pushl $0x0
+	pushl $0x0
+	pushl $0x20000000 #PROGRAM_BASE_ADDR
+	pushl $0x00010010 #(word)sectors to load; (byte)zero; (byte)size of DAP (16)
+
+	mov %ss, %bx
+	mov %bx, %ds
+	mov %sp, %si
+	mov $0x42, %ah
+	int $0x13
+
+	jc boot_fail     #carry flag is set on error
 
 	mov	$STR_LOADED, %si
 	call	print_str
@@ -226,4 +232,3 @@ gdtdesc:
 	# that this is a boot sector.
 	.org BOOT_SIG_ADDR - BOOT_BASE_ADDR
 	.word 0xaa55
-
