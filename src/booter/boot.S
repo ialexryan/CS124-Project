@@ -46,7 +46,7 @@ boot_start:
 
 	pushl $0x0
 	pushl $0x0
-	pushl PROGRAM_BASE_ADDR #maybe $0x20000000 instead?
+	pushl $0x20000000 #maybe PROGRAM_BASE_ADDR instead?
 	pushl $0x00010010 #(word)sectors to load; (byte)zero; (byte)size of DAP (16)
 
 	mov %ss, %bx
