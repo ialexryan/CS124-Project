@@ -10,6 +10,7 @@
 
 /* The main program expects to be loaded at address 0x00020000 */
 #define PROGRAM_BASE_ADDR 0x00020000
+#define PROGRAM_START_ADDR (PROGRAM_BASE_ADDR + 0x18)
 
 /* Flags in control register 0. */
 #define CR0_PE 0x00000001      /* Protection Enable. */
@@ -21,4 +22,3 @@
 #define SEL_NULL          0x00    /* Null selector. */
 #define SEL_CODESEG       0x08    /* Code selector. */
 #define SEL_DATASEG       0x10    /* Data selector. */
-

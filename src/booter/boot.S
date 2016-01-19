@@ -130,25 +130,9 @@ call_c_entry:
 	cld			# C code expects this...
 	movl $0, %ebp		# Null-terminate the program's backtrace
 
-	#---------------------------------------------------------------------
-	# TODO:  Call the entry-point of the C program!  The program is
-	#        compiled and linked into an ELF file, so the file's ELF
-	#        header will specify the entry-point into the program.  See
-	#        the e_entry field; it is a 32-bit value.
-	#
-	#        The ELF-header is the very first data-structure in the data
-	#        that was loaded by the boot-loader, so the e_entry field
-	#        will be at a fixed offset from the start of the file data.
-	#
-	#        You will need to use an indirect call, where the address to
-	#        call is in a register.  The format is:  call *%somereg
-	#
-	#        Don't forget that you are calling a C function, so follow
-	#        cdecl!
-	#
-	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.  (FEEL
-	#        FREE TO INCORPORATE ANY OF THE ABOVE COMMENTS INTO YOUR CODE!)
-	#---------------------------------------------------------------------
+	mov $0x20000018, %ebx  # Maybe PROGRAM_START_ADDR instead
+	call *%ebx    # If we cared about the contents of EAX/ECX/EDX we'd save them here
+
 
 	#=====================================================================
 	# The rest of this file contains helper functions for the 16-bit
