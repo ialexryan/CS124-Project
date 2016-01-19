@@ -130,7 +130,7 @@ call_c_entry:
 	cld			# C code expects this...
 	movl $0, %ebp		# Null-terminate the program's backtrace
 
-	mov $0x20000018, %ebx  # Maybe PROGRAM_START_ADDR instead
+	mov PROGRAM_START_ADDR, %ebx  # Maybe PROGRAM_START_ADDR instead
 	call *%ebx    # If we cared about the contents of EAX/ECX/EDX we'd save them here
 
 
