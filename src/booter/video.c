@@ -26,33 +26,36 @@
  *        position, or any other details you might want to keep track of!
  */
 
+typedef union {
+    struct {
+        char foreground : 4;
+        char background : 4;
+    };
+    char raw_value;
+} color_pair;
 
- char color_byte(char fg, char bg) {
-    return fg + (bg << 4);
- }
+void clear_screen(color_pair colors) {
+   volatile char *video = (volatile char*)VIDEO_BUFFER;
+   int i;
+   for (i = 0; i < 80*25; i++) {
+       *video = ' ';
+       video++;
+       *video = colors.raw_value;
+       video++;
+   }
+}
 
- void clear_screen(char colors) {
-    volatile char *video = (volatile char*)VIDEO_BUFFER;
-    int i;
-    for (i = 0; i < 80*25; i++) {
-        *video = ' ';
-        video++;
-        *video = colors;
-        video++;
-    }
- }
-
- void write_char(int x, int y, char colors, char character) {
-    volatile char *video = (volatile char*)VIDEO_BUFFER;
-    int offset = x + y * 80;
-    video += offset * 2;  // Each spot is two bytes, one for the char and one for the color
-    *video = character;
-    video++;
-    *video = colors;
- }
+void write_char(int x, int y, color_pair colors, char character) {
+   volatile char *video = (volatile char*)VIDEO_BUFFER;
+   int offset = x + y * 80;
+   video += offset * 2;  // Each spot is two bytes, one for the char and one for the color
+   *video = character;
+   video++;
+   *video = colors.raw_value;
+}
 
 
-void write_string(int x, int y, char color, char* characters) {
+void write_string(int x, int y, color_pair colors, char* characters) {
     volatile char *video = (volatile char*)VIDEO_BUFFER;
     int offset = x + y * 80;
     video += offset * 2;
@@ -60,7 +63,7 @@ void write_string(int x, int y, char color, char* characters) {
         *video = *characters;
         characters++;
         video++;
-        *video = color;
+        *video = colors.raw_value;
         video++;
     }
 }
@@ -69,6 +72,6 @@ void init_video(void) {
     /* TODO:  Do any video display initialization you might want to do, such
      *        as clearing the screen, initializing static variable state, etc.
      */
-    clear_screen(color_byte(RED, GREEN));
-    write_string(40, 17, color_byte(CYAN, MAGENTA), "Hello, world!");
+    clear_screen((color_pair){ .foreground = RED, .background = GREEN });
+    write_string(40, 17, (color_pair){ .foreground = CYAN, .background = MAGENTA }, "Hello, world!");
 }
