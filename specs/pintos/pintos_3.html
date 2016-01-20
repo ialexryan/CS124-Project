@@ -1,0 +1,889 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+                      "http://www.w3.org/TR/html40/loose.dtd">
+<HTML>
+<!-- Created on January, 14 2016 by texi2html 1.66 -->
+<!--
+Written by: Lionel Cons <Lionel.Cons@cern.ch> (original author)
+            Karl Berry  <karl@freefriends.org>
+            Olaf Bachmann <obachman@mathematik.uni-kl.de>
+            and many others.
+Maintained by: Many creative people <dev@texi2html.cvshome.org>
+Send bugs and suggestions to <users@texi2html.cvshome.org>
+
+-->
+<HEAD>
+<TITLE>Pintos Projects: Project 2--PC Booter</TITLE>
+
+<META NAME="description" CONTENT="Pintos Projects: Project 2--PC Booter">
+<META NAME="keywords" CONTENT="Pintos Projects: Project 2--PC Booter">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META NAME="Generator" CONTENT="texi2html 1.66">
+<LINK REL="stylesheet" HREF="pintos.css">
+</HEAD>
+
+<BODY >
+
+<A NAME="SEC36"></A>
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_2.html#SEC15"> &lt;&lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_4.html#SEC54"> &gt;&gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos.html#SEC_Top">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[Index]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_abt.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+
+<HR SIZE=2>
+<H1> 3. Project 2: PC Booter </H1>
+<!--docid::SEC36::-->
+<P>
+
+In this assignment you will learn more about the IA32 bootstrap process, and
+a bit of what it's like to program on top of the &quot;bare metal,&quot; as it's called.
+You will complete a basic framework to boot the computer directly into a C
+program - with no operating system at all.  Using this framework, you will
+then create a simple game or interactive demo of your own devising, using a
+limited number of the computer's hardware capabilities.
+</P>
+<P>
+
+This project will be completed in the <Q><TT>src/booter</TT></Q> directory.  As with
+Project 1, you will not need to work in the Pintos codebase itself; it is
+another stand-alone assignment.
+</P>
+<P>
+
+The <Q><TT>specs</TT></Q> directory contains a significant amount of documentation
+about various hardware components, as well as other specifications that
+you will find useful throughout the term.  For this week, you should use
+the IA32 manuals in the <Q><TT>specs/ia32</TT></Q> directory, as well as the ELF
+file documentation in the <Q><TT>specs</TT></Q> directory.  Relevant sections are
+cited in the comments of the source files you will work in.
+</P>
+<P>
+
+<A NAME="Project 2 Background"></A>
+<HR SIZE="6">
+<A NAME="SEC37"></A>
+<H2> 3.1 Background </H2>
+<!--docid::SEC37::-->
+<P>
+
+During the 1980s, a surprisingly large number of games followed the approach
+of creating a special disk that would boot the computer directly into the
+game.  When graphics and sound hardware were very limited, and the OS didn't
+provide any graphics or sound facilities, so-called &quot;PC booters&quot; were able to
+squeeze the most out of the limited hardware and offer reasonably compelling
+gaming experiences.  (Now that graphics hardware is extremely advanced and
+widely varied, games depend heavily on the operating system to provide a
+unified software interface for interacting with the graphics hardware.)
+</P>
+<P>
+
+The other major reason why game publishers took this approach was to provide
+some measure of copy protection.  Disks frequently used nonstandard formats
+(e.g. putting an extra track on floppy disks that operating systems didn't
+know how to access, or fewer sectors per track than the typical format), so
+that operating systems would be unable to copy them.  Of course, these measures
+were frequently straightforward to circumvent.
+</P>
+<P>
+
+If you want to see a list of PC booter games, check out the list on Wikipedia:
+<A HREF="https://en.wikipedia.org/wiki/List_of_PC_booter_games">https://en.wikipedia.org/wiki/List_of_PC_booter_games</A>.
+</P>
+<P>
+
+<A NAME="Project 2 Approach"></A>
+<HR SIZE="6">
+<A NAME="SEC38"></A>
+<H3> 3.1.1 Approach </H3>
+<!--docid::SEC38::-->
+<P>
+
+If you are going to write a PC booter, you will need to write some assembly
+language.  But, you don't want to write an entire game in IA32 assembly, so
+our goal will be to boot the computer such that it can call into a C program
+compiled by <CODE>gcc</CODE>.  The IA32 machine code emitted by <CODE>gcc</CODE> is
+32-bit code that expects to run against a linear 32-bit address space.
+However, the bootloader runs in 16-bit real mode.  Thus, the bootloader must
+also transition from 16-bit real mode into 32-bit protected mode.
+</P>
+<P>
+
+Fortunately, we can also take a few other shortcuts:
+<UL>
+<LI>The biggest one is that we don't need virtual memory or paging, so we can
+      simply leave that feature turned off on the processor.
+<P>
+
+</P>
+<LI>Our program won't be larger than a few dozen KiB, so we don't need to
+      worry about enabling the A20 address line.  Our program should easily fit
+      within the basic PC 1MiB address space.
+<P>
+
+</P>
+<LI>PC booters frequently occupied the entirety of a floppy disk, so the disk
+      requires no filesystem beyond what the game might require.  In our case,
+      we will choose a very simple disk layout that makes it very easy to build
+      our program.  This also means our bootloader won't have any partition data
+      or other details - our bootloader will have a luxurious 510 bytes to use.
+<P>
+
+</P>
+<LI>Since Intel PCs have a long history, and backward compatibility has been
+      maintained all the way along, we can use the simpler Programmable
+      Interrupt Controller (PIC) and the Programmable Interval Timer (PIT) to
+      generate timer and keyboard interrupts.  The Advanced Programmable
+      Interrupt Controller (APIC) is significantly more complex, and all modern
+      operating systems leverage it heavily, but we simply don't need it.
+</UL>
+<P>
+
+Recall that the bootloader will be loaded into memory by the BIOS, at address
+0x0000:0x7C00.  The bootloader's primary responsibility is to load the main
+program into memory, and then prepare the computer such that our program will
+run properly.  The bootloader must be implemented entirely in IA32 assembly
+language; some of it will be 16-bit real-mode code, and some of it will be
+32-bit protected-mode code.  Within the 16-bit portion, we can take advantage
+of BIOS calls, but once we transition into protected mode, we won't be able to
+use the BIOS anymore.  Thus, anything that needs to be done via the BIOS, must
+be done within the bootloader before the main program executes.  (For example,
+if you wish to change to a graphics display mode instead of the default
+text-based mode, you need to do this in the bootloader.)
+</P>
+<P>
+
+The main program will be written in C, and compiled so that it expects to
+reside at the address that the bootloader loads it into the computer.  The
+main program can expect that the bootloader has taken care of basic tasks
+like switching into 32-bit protected mode (otherwise our C program won't run!),
+but the C program can carry out operations like setting up interrupts, drawing
+to the screen, and so forth.
+</P>
+<P>
+
+These two components are really different programs, so we will build them
+separately and then stitch them together into a single &quot;floppy disk image.&quot;
+We will generate an image that could be put onto a 1.44MB 3.5&quot; disk.  Of
+course, you probably haven't seen a 3.5&quot; disk drive in quite some time, so
+we will use the QEMU emulator to boot our disk image and see what happens.
+(QEMU is one of the two emulators used for the remaining Pintos labs, so you
+will already have it on your virtual machine.  If not, it is very easy to
+install.)  If everything works properly, you should see your program running
+in the virtual console!
+</P>
+<P>
+
+<A NAME="Relevant BIOS Functions"></A>
+<HR SIZE="6">
+<A NAME="SEC39"></A>
+<H3> 3.1.2 Relevant BIOS Functions </H3>
+<!--docid::SEC39::-->
+<P>
+
+There are really only two BIOS functions that you will need to use in your
+bootloader.  One is used to interact with the computer's video display, and the
+other is used to interact with the computer's disks.
+</P>
+<P>
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>int $0x10</CODE>
+<DD><P>
+
+This interrupt is provided by the BIOS to support interactions with the
+computer's display.  The bootloader currently uses it to print text messages
+to the screen (AH = 0x0E &quot;Teletype Output&quot;), and to hide the cursor (AH = 0x01
+&quot;Set Text-Mode Cursor Shape&quot;) so that Donnie doesn't get distracted by &quot;that
+annoying blinky thing.&quot;
+</P>
+<P>
+
+You probably won't need to do anything else with this BIOS interrupt, unless
+you want to pursue some extra credit by creating a graphical game or demo.
+Switching into the appropriate display mode is complicated without the support
+of BIOS, so the best option is to use the BIOS in real-mode to switch the video
+display mode (AH = 0x00 &quot;Set Video Mode&quot;), and then switch to protected mode.
+(Note that your program will not be able to use the BIOS calls to draw pixels;
+you will need to write to video memory directly.  This is not terribly
+difficult, though.)
+</P>
+<P>
+
+</P>
+<DT><CODE>int $0x13</CODE>
+<DD><P>
+
+This interrupt is used to access all of the disk-drive related functionality
+provided by the BIOS.  Our bootloader has very simple requirements for
+interacting with the computer's disks, though:  it never needs to write data,
+only read it, and the BIOS informs the bootloader of what disk it was loaded
+from by the value in DL.  Thus, it should be very straightforward for the
+bootloader to load the program into memory.
+</P>
+<P>
+
+The BIOS provides two functions for reading disk sectors.  One is AH = 0x02
+&quot;Read Sectors.&quot;  However, this call uses the Cluster-Head-Sector (CHS)
+addressing mechanism, which is limited to small disks, and it requires knowing
+the disk geometry, which we just don't want to mess with.  So, we won't use
+this operation.
+</P>
+<P>
+
+The other BIOS <CODE>int $0x13</CODE> function is AH = 0x42 &quot;Extended Read Sectors,&quot;
+and uses the Logical Block Addressing (LBA) mechanism for referring to sectors.
+The only challenge of this function is that <CODE>DS:SI</CODE> must point to a &quot;Disk
+Address Packet&quot; (abbreviated &quot;DAP&quot;) structure that specifies the starting sector
+and number of sectors to read.  This structure is 16 bytes in size, and must be
+constructed somewhere:  the bootloader might use an adjacent area of memory, or
+it might construct the structure on the stack.  Really, the bootloader can do
+whatever it wants with memory at this point, as long as it doesn't trample
+bootloader code or try to write to read-only memory regions.  That said, it's
+probably easiest to push the parts of the DAP onto the stack.  Most of the
+arguments to the BIOS call will be constants, since you will know how large the
+program is that you must load, and where you are going to load it to.
+</P>
+<P>
+
+However you decide to do it, once the Disk Address Packet is constructed, it
+can be passed to the BIOS handler to read the data from the disk.
+</P>
+<P>
+
+Note that some BIOSes aren't able to load a large number of sectors at once,
+and you are limited to 64KiB sectors by the addressing mode anyway.  It's
+unlikely that your entire program will be larger than 64KiB, but if it is,
+your bootloader can always load the program in multiple smaller chunks.
+</P>
+<P>
+
+</DL>
+<P>
+
+<A NAME="Project 2 Hardware Facilities"></A>
+<HR SIZE="6">
+<A NAME="SEC40"></A>
+<H3> 3.1.3 Hardware Facilities </H3>
+<!--docid::SEC40::-->
+<P>
+
+Once your bootloader has started executing the C program, we have a number of
+hardware facilities to set up, otherwise our program will be pretty boring.
+The most obvious of these is video output.  By default, the computer will start
+in a VGA text mode (80x25 characters, with 16 colors to choose from).  Since we
+are in protected mode, we can't call BIOS operations to write to the screen -
+but we can write directly into the video buffer, which will cause our data to
+be displayed on the screen immediately.  This turns out to be very
+straightforward.  You will want to create a simple API for clearing the screen,
+changing colors, and drawing text to the screen, so that you can create your
+program.  (What goes in this API will obviously be dictated by what kind of
+program you wish to create.  You might have similar and/or different operations
+in your video functionality.)
+</P>
+<P>
+
+(It is not recommended due to time constraints, but if you wish to change the
+video display mode, e.g. so that you can create a graphical program, you should
+perform such configuration operations in your bootloader, before you transition
+to protected mode.  This way you can rely on the BIOS to perform these
+operations.  Note that writing to the display buffer in graphical display modes
+can be quite complex, so don't pursue this unless you have the rest of the
+project well in hand!)
+</P>
+<P>
+
+Secondly, if we wish to have some kind of animated display, we would like to
+have a hardware timer facility to leverage.  Since its inception, the IBM PC
+has provided such a feature that is straightforward to configure and use, and
+because of backward compatibility, this facility is still provided today.  The
+timer can be set up to fire an interrupt on a periodic interval, and then this
+can be used to drive various aspects of our program.  We don't expect to be
+particularly efficient with how we use the processor, but the timer will at
+least allow us to do things on a specific time interval.
+</P>
+<P>
+
+Third, interactive programs are always far more interesting than passive ones,
+so we would like to have some kind of basic keyboard facility.  Again, this is
+reasonably straightforward to set up, as long as we have a PS/2 keyboard to use.
+(USB keyboards are beyond the scope of this project!)  Thankfully, this is
+exactly what most processor emulators include.  The PS/2 keyboard controller
+can be set up fire an interrupt anytime a key is pressed, and anytime a key is
+released.  An interrupt handler can fetch the keyboard data from the PS/2
+controller and feed it to the program.
+</P>
+<P>
+
+Of course, these two tasks require basic interrupt handling support to be
+configured and enabled, and since we will be in 32-bit protected mode, our C
+program is responsible for setting this up.  Interrupt handlers also need
+to be provided for the timer and the keyboard.  All of this turns out to be
+relatively straightforward to complete.
+</P>
+<P>
+
+<A NAME="Project 2 Requirements"></A>
+<HR SIZE="6">
+<A NAME="SEC41"></A>
+<H2> 3.2 Requirements </H2>
+<!--docid::SEC41::-->
+<P>
+
+To receive full credit, your submission for Project 2 must include all aspects
+described in this section.
+</P>
+<P>
+
+<A NAME="Project 2 Design Document"></A>
+<HR SIZE="6">
+<A NAME="SEC42"></A>
+<H3> 3.2.1 Design Document </H3>
+<!--docid::SEC42::-->
+<P>
+
+Before you turn in your project, you must copy <A HREF="pcbooter.tmpl">the
+project 2 design document template</A> into your source tree under the name
+<Q><TT>pintos/src/booter/DESIGNDOC</TT></Q> and fill it in.  We recommend that
+you read the design document template before you start working on the
+project.
+</P>
+<P>
+
+(As before, you don't have to put the commit-hash into the design document
+that you check into the repository, since that will obviously depend on
+the rest of the commit.  It only needs to be in the one you submit on the
+course webiste.)
+</P>
+<P>
+
+<A NAME="Project 2 Bootloader"></A>
+<HR SIZE="6">
+<A NAME="SEC43"></A>
+<H3> 3.2.2 Bootloader </H3>
+<!--docid::SEC43::-->
+<P>
+
+Complete the bootloader in <Q><TT>boot.S</TT></Q>.  This portion is in IA32 assembly
+language.  You will need to fill in three main components:
+</P>
+<P>
+
+<UL>
+<LI>Load the remainder of your program into memory at the proper address.
+      (You will be loading the &quot;C game&quot; portion into memory.)
+<LI>Complete the code that transitions into 32-bit protected mode.  The
+      required steps are described in the comments of the bootloader.
+<LI>Identify and then call the entry-point of your C program.
+</UL>
+<P>
+
+You will likely need to refer to various specifications to see exactly what to
+do for each of these steps.  These specifications will be provided in the
+@file {specs} subdirectory of the repository.  Relevant sections are noted in
+the bootloader comments.
+</P>
+<P>
+
+<A NAME="Project 2 C Program"></A>
+<HR SIZE="6">
+<A NAME="SEC44"></A>
+<H3> 3.2.3 C Program </H3>
+<!--docid::SEC44::-->
+<P>
+
+The C program should implement a simple game or interesting demo program of
+your own devising.  The program should utilize the video display (text-mode is
+perfectly fine; we use the term &quot;video&quot; in a general sense), the PC timer, and
+the keyboard.  To support these last subsystems, you will need to configure and
+enable interrupt handling, and provide interrupt service routines for the timer
+and the keyboard.
+</P>
+<P>
+
+The main requirements of the program are:
+<UL>
+<LI>It should utilize all specified subsystems
+<LI>It should be interesting
+<LI>It should be fun
+</UL>
+<P>
+
+So, it doesn't have to be a game per se, but it is definitely easiest to
+satisfy these constraints by building a game.  Also, don't get carried away -
+be conservative in your goals, since you only have a week to complete this
+project.
+</P>
+<P>
+
+A simple example would be a 2-person &quot;Pong&quot; game, with keyboard control of both
+paddles (e.g. &quot;A&quot;/&quot;Z&quot; keys for the left player, and &quot;Up&quot;/&quot;Down&quot; for the right
+player), and basic score-keeping.
+</P>
+<P>
+
+Another example might be a scrolling &quot;racing-type&quot; game, where obstacles scroll
+from right to left (or from top to bottom), and the player must move a vehicle
+to avoid impact with an obstacle.  Over time, the speed of the scrolling
+increases such that the game gets harder and harder.  On impact, you can make
+colorful explosions to mock the player for their bad driving.
+</P>
+<P>
+
+There are numerous simple games like this - if you get stumped, you can always
+look at popular games from the 1970s and 1980s for inspiration.  The hardware
+was extremely limited, but the games were surprisingly addictive.
+</P>
+<P>
+
+The entry-point for your C program will be in the file <Q><TT>game.c</TT></Q>, and it is
+called <CODE>c_entry()</CODE>.  You can create whatever other source files you want
+to create, but several files are provided for the video, keyboard, timer and
+interrupt-handling portions of the code.
+</P>
+<P>
+
+Of course, you cannot use libraries in your program, since whatever you do has
+to run in a very limited environment.  Thus, even basic operations like string
+manipulation or zeroing a memory region will need to be implemented by you.
+That said, you probably won't run into these kinds of issues very much.
+</P>
+<P>
+
+<A NAME="Project 2 Video Output"></A>
+<HR SIZE="6">
+<A NAME="SEC45"></A>
+<H3> 3.2.4 Video Output </H3>
+<!--docid::SEC45::-->
+<P>
+
+The files <Q><TT>video.h</TT></Q> and <Q><TT>video.c</TT></Q> are where you can put code that
+interacts with the video display.  You can provide whatever kinds of operations
+that work best for your game.  Additional documentation and references are
+provided in these files.
+</P>
+<P>
+
+Note that you are not limited to displaying just the characters you can type
+on the keyboard!  You can leverage any of the Extended ASCII Codes to draw
+very nice ASCII art.  See <A HREF="http://www.asciitable.com/">http://www.asciitable.com/</A> for more details.
+Many games from the 80s used these extended ASCII characters to great effect.
+</P>
+<P>
+
+<A NAME="Project 2 Interrupt Handling"></A>
+<HR SIZE="6">
+<A NAME="SEC46"></A>
+<H3> 3.2.5 Interrupt Handling </H3>
+<!--docid::SEC46::-->
+<P>
+
+The files <Q><TT>interrupt.h</TT></Q> and <Q><TT>interrupt.c</TT></Q> contain basic code to
+support hardware interrupts.  You will need to complete the code that sets up
+the Interrupt Descriptor Table (IDT), and to install an interrupt handler into
+the IDT.  These tasks are very straightforward, and comments are provided to
+explain the details.
+</P>
+<P>
+
+Your game's entry-point will need to call the operations exposed in this code
+in order to activate interrupt-handling in your game.  You will likely want to
+do this towards the end of your initial setup, since you don't want to actually
+turn on interrupts until you have installed the handlers for the timer and the
+keyboard.
+</P>
+<P>
+
+Note that interrupt service routines (ISRs) are expected to be put into the file
+<Q><TT>handlers.S</TT></Q>.  They will need to be written in IA32 assembly code.  You can
+do anything you want in your ISRs, but it is strongly recommended that you
+simply call a C function to service the interrupt.  Details for how to do this
+are given in <Q><TT>handlers.S</TT></Q>.
+</P>
+<P>
+
+<A NAME="Project 2 Timer Interrupt"></A>
+<HR SIZE="6">
+<A NAME="SEC47"></A>
+<H3> 3.2.6 Timer Interrupt </H3>
+<!--docid::SEC47::-->
+<P>
+
+The timer is configured and managed in the files <Q><TT>timer.h</TT></Q> and
+<Q><TT>timer.c</TT></Q>.  Code is provided to do the most basic setup of the Programmable
+Interval Timer, but you will still need to create the ISR for the timer, and
+also what to do when timer interrupts fire.
+</P>
+<P>
+
+A very simple example would be to have a static &quot;timer-count&quot; variable in the
+<Q><TT>timer.c</TT></Q> file, that gets incremented when the timer interrupt fires.  This
+would allow you to provide &quot;<CODE>sleep(int secs)</CODE>&quot;-type functionality for your
+game to use.  (Perhaps &quot;seconds&quot; is too coarse a granularity, though.)
+</P>
+<P>
+
+Another option would be to have your timer interrupt handler call some functions
+to advance your game state.
+</P>
+<P>
+
+There are numerous approaches you could take; these are just two examples.
+Whatever you decide to do, you will likely want to add other timer-related
+operations to <Q><TT>timer.h</TT></Q> for your main program to call.
+</P>
+<P>
+
+The timer is initially configured to fire approximately 100 times per second.
+You can change this configuration to whatever you want.  You shouldn't make the
+timer fire too fast, or you will be very likely to miss timer interrupts.
+</P>
+<P>
+
+<A NAME="Project 2 Keyboard Interrupt"></A>
+<HR SIZE="6">
+<A NAME="SEC48"></A>
+<H3> 3.2.7 Keyboard Interrupt </H3>
+<!--docid::SEC48::-->
+<P>
+
+The keyboard follows the same basic pattern as the timer interrupt, but the
+data it produces is much more interesting.  The files to alter are
+<Q><TT>keyboard.h</TT></Q> and <Q><TT>keyboard.c</TT></Q>.
+</P>
+<P>
+
+The keyboard initialization code is much shorter than the timer initialization
+code, because the keyboard was already configured by the BIOS to generate
+interrupts.  You will need to devise some way to manage the data that comes
+from the keyboard interrupt handler.  What makes this more complicated is that
+the keyboard generates more information than you might expect - it generates a
+scan-code for every key-press, and one for every key-release.  Some of these
+scan-codes are one byte, and some are two bytes.  (Rarely, you will even see
+three-byte scan-codes.)
+</P>
+<P>
+
+Frequently, a &quot;circular queue&quot; data structure is used to buffer keypress data
+until a program is able to consume it.  It is a simple fixed-size buffer with
+a &quot;head&quot; and a &quot;tail&quot; index.  Data is added to the tail, and data is consumed
+from the head.  Of course, when one of these indexes moves past the end of this
+queue, it wraps back to the start of the queue; hence the name &quot;circular queue.&quot;
+</P>
+<P>
+
+Of course, you could use some other mechanism to track keyboard state, e.g. only
+checking if the keys your program requires are pressed or released.  This is not
+very extensible, and likely to be bug-prone, and it will also likely make it
+extremely difficult to read keys that generate multi-byte scan-codes.  So, some
+kind of queue structure is recommended.
+</P>
+<P>
+
+Whether you use a circular queue, or whether you use some other data structure,
+you should carefully consider potential synchronization issues that can occur.
+Interrupt handlers can interrupt anything else that runs on the computer -
+including code that is accessing data structures that the keyboard handler
+manipulates.  To avoid race conditions, you can always disable interrupts
+while checking the keyboard data structures, and then reenable them when you
+are finished.  Note that the interrupt handler doesn't need to disable
+interrupts - this already happens automatically - it is only the code that can
+be interrupted by the handler.
+</P>
+<P>
+
+<A NAME="Project 2 Suggested Order of Implementation"></A>
+<HR SIZE="6">
+<A NAME="SEC49"></A>
+<H2> 3.3 Suggested Order of Implementation </H2>
+<!--docid::SEC49::-->
+<P>
+
+This project should be easy to divide among team members, since there are
+several different self-contained parts to complete.  There are two things that
+need to be done quickly - the first is to get the bootloader working so that
+testing and debugging of the C program can start quickly, and the second is to
+agree on an idea for a simple game or interactive demo so that the requirements
+for the various C components can be nailed down quickly.
+</P>
+<P>
+
+The bootloader itself should probably be completed by one person who is
+familiar with IA32 assembly language programming, since it doesn't require a
+huge amount of programming.  Multiple people can work on it together, but
+probably more as a pair-programming exercise rather than working on different
+parts of the loader separately.  There just isn't a ton of code to write there.
+</P>
+<P>
+
+Writing support code for the various subsystems (video, interrupt handling,
+keyboard, timer) can definitely proceed in parallel, but some consideration
+should be given to the way that functionality is exposed.  This will be
+driven by the overall program that the team wishes to create.
+</P>
+<P>
+
+While developing and testing subsystems, you will likely find it of value to
+create simple test functions that can be called from the main entry point, to
+verify that subsystems are working correctly.  For example, a simple test that
+outputs text to various locations on the screen, to ensure that video output is
+working properly.  Similarly, a program that outputs keyboard scan-codes to the
+screen, or that outputs text based on a timer interrupt, would also be helpful
+for verifying the corresponding subsystems.
+</P>
+<P>
+
+<A NAME="Project 2 Testing"></A>
+<HR SIZE="6">
+<A NAME="SEC50"></A>
+<H2> 3.4 Testing </H2>
+<!--docid::SEC50::-->
+<P>
+
+<A NAME="Running Your PC Booter"></A>
+<HR SIZE="6">
+<A NAME="SEC51"></A>
+<H3> 3.4.1 Running Your PC Booter </H3>
+<!--docid::SEC51::-->
+<P>
+
+As with Project 1, there is no automated testing for Project 2.  Instead, your
+program can be run in the QEMU emulator to see how it behaves.  The
+<Q><TT>Makefile</TT></Q> provided with the initial code has several build targets you
+can use to exercise your program.
+</P>
+<P>
+
+</P>
+<DL COMPACT>
+
+<DT><CODE>make run-qemu</CODE>
+<DD>This target will build the file <Q><TT>floppy.img</TT></Q> and then run it in QEMU.  If
+everything is working properly, you should see your bootloader run, and then
+your program should start executing.  If you have errors, you will need to
+diagnose them from what you see, or from running the debugger.  (See the next
+item.)
+<P>
+
+Note that QEMU is configured to enable PC-speaker emulation, but the support for
+this is very primitive.  Don't expect that sound output will necessarily work
+from within QEMU.
+</P>
+<P>
+
+</P>
+<DT><CODE>make debug-qemu</CODE>
+<DD>This target will carry out the same steps as the previous target, but it will
+start QEMU with its GDB debugging stubs active.  Additionally, QEMU will halt
+immediately so that you can connect GDB to the emulator.  Details on how to do
+this are given in the next section.
+<P>
+
+<STRONG>Note that if you click on the QEMU window, it will trap your mouse!</STRONG>
+Follow the hint in the QEMU window's title bar, and press Ctrl+Alt in order to
+get QEMU to release your mouse cursor.
+</P>
+<P>
+
+</DL>
+<P>
+
+<A NAME="Debugging Your PC Booter"></A>
+<HR SIZE="6">
+<A NAME="SEC52"></A>
+<H3> 3.4.2 Debugging Your PC Booter </H3>
+<!--docid::SEC52::-->
+<P>
+
+Debugging your PC booter is surprisingly easy - well, easy given the fact that
+it's a bootable program.  Just run <CODE>make debug-qemu</CODE> as given in the
+previous section.  Then, in a second terminal window, navigate to the directory
+where your PC booter is located, and type &quot;<CODE>gdb program.o</CODE>&quot;.  This will
+load the symbols for your program.  (It won't load the bootloader symbols; if
+you need to debug the bootloader, you will have to look at raw assembly code.)
+</P>
+<P>
+
+Next, in GDB, run the command &quot;<CODE>target remote localhost:1234</CODE>&quot;.  This
+will connect to the halted QEMU program.  In fact, QEMU is running perfectly
+fine, but it provides a &quot;GDB hook&quot; that allows GDB to debug the program running
+inside of QEMU, and the emulator is initially paused until GDB tells it to go.
+</P>
+<P>
+
+Once you have connected to the QEMU session, you can set breakpoints (e.g. at
+<CODE>c_entry()()</CODE> or some other location), and debug as usual.
+</P>
+<P>
+
+If you need to debug your bootloader, your job is slightly harder, but not much.
+You need to do these things in order:
+</P>
+<P>
+
+<UL>
+<LI>&quot;<CODE>set architecture i8086</CODE>&quot; so that the debugger will show you
+      16-bit x86 assembly code
+<LI>&quot;<CODE>break *0x7c00</CODE>&quot; so that the debugger will stop at the first
+      instruction of your bootloader
+<LI>&quot;<CODE>c</CODE>&quot; (or &quot;<CODE>continue</CODE>&quot;) so that the debugger will resume
+      executing, until it hits the breakpoint you just set
+<LI>&quot;<CODE>display/5i $pc</CODE>&quot; will cause GDB to always show you the next five
+      instructions to be executed, so that you can see what is going on
+</UL>
+<P>
+
+Once you have done the above, you can use the <CODE>stepi</CODE> (or just
+<CODE>si</CODE>) command to execute each instruction.  Note that <CODE>stepi</CODE>
+will step <STRONG>into</STRONG> interrupt calls!  The easiest thing to do is to set a
+breakpoint on the instruction immediately following the <CODE>int</CODE> call, so that
+you can &quot;<CODE>continue</CODE>&quot; to execute until the interrupt operation is
+finished.
+</P>
+<P>
+
+<A NAME="Project 2 Extra Credit"></A>
+<HR SIZE="6">
+<A NAME="SEC53"></A>
+<H2> 3.5 Extra Credit </H2>
+<!--docid::SEC53::-->
+<P>
+
+This is a very open-ended project, and there are many opportunities to try out
+fun and exciting techniques.  Be careful about setting your goals too high - it
+is much better to turn in a complete, working project, even if it doesn't use
+fancy techniques, rather than trying to use some advanced technique, running
+into trouble, and having an incomplete project.  (Maximum score on this project
+is 120 points.)
+</P>
+<P>
+
+<UL>
+
+<LI>The &quot;coolness factor&quot; of the game or demo can definitely result in extra
+      credit points being awarded.  Obviously, this is entirely up to Donnie's
+      discretion...  (up to +5 points)
+<P>
+
+</P>
+<LI>Figure out how to boot your program under Bochs, and include instructions
+      (and any configuration files necessary) for how to do so, in your
+      submission.  (+3 points)
+<P>
+
+</P>
+<LI>While you are not required to use a graphical display mode to implement
+      your program, you will definitely get extra credit points if you do.
+      (up to +10 points)
+<P>
+
+      As mentioned earlier, the easiest way to change the display mode is to do
+      it in your bootloader, and then implement your video drawing code in your
+      C program.
+</P>
+<P>
+
+      You will probably want to read this page to get started:
+      <A HREF="http://wiki.osdev.org/Drawing_In_Protected_Mode">http://wiki.osdev.org/Drawing_In_Protected_Mode</A>.  Then, you will
+      need to find documentation on the graphics mode you decide to use.  CGA
+      is relatively simple, but you will only have 4 colors and 320x200 pixel
+      resolution.  EGA and VGA give you many more colors, but the various
+      display modes can require complicated interactions with video memory
+      in order to draw pixels.
+</P>
+<P>
+
+      Finally, once you switch to a graphical mode, you will have to draw text
+      on the screen all by yourself!  Most graphics code includes font tables
+      for drawing characters on the screen in graphical display modes.
+</P>
+<P>
+
+</P>
+<LI>Create a physical disk (or other device, e.g. USB drive or CD) with your
+      game on it, and get it booting and running on a physical computer.
+      (+3 points.)
+<P>
+
+      To get these points, you will need to demo this to Donnie.  You can use
+      the <CODE>dd</CODE> utility to dump your disk image to a physical device;
+      there are numerous tutorials for <CODE>dd</CODE> on the Internet.
+</P>
+<P>
+
+      <STRONG>NOTE 1:</STRONG>  This will not work on a Mac, since Macs use UEFI
+      rather than BIOS for bootstrapping the computer.  You will need to have a
+      reasonably modern PC computer.
+</P>
+<P>
+
+      <STRONG>NOTE 2:</STRONG>  Do not reboot the CS lab computers to test your program
+      on the lab hardware!  If you are discovered doing this, you will receive
+      a substantial point deduction on this assignment.
+</P>
+<P>
+
+</P>
+<LI>Try to get the PC speaker working for simple tone generation.
+      (up to +5 points; try to make sure it isn't actually annoying!)
+<P>
+
+      The Programmable Interval Timer (PIT) has three different channels for
+      generating timer events.  We already use Channel 0 to generate timer
+      interrupts, but Channel 2 can be routed to the PC speaker to generate
+      tones of varying frequencies.  (Channel 1 hasn't been used much since the
+      original PC computers, so not all emulators support it.)
+</P>
+<P>
+
+      The only problem with trying to get PC speaker audio working is that both
+      QEMU and Bochs have very limited support for PC speaker emulation.  Thus,
+      you will probably need to try PC speaker output on a real computer.
+      Another option is to try running your bootable image in QEMU directly on
+      your computer; i.e. not within a virtual machine on yoru computer.  (You
+      will also need to specify a command-line like
+      &quot;<CODE>qemu-system-i386 -soundhw pcspk ...</CODE>&quot; to enable PC speaker
+      emulation.)
+</P>
+<P>
+
+      You can read more about PC speaker output at this URL:
+      <A HREF="http://wiki.osdev.org/PC_Speaker">http://wiki.osdev.org/PC_Speaker</A>.  You should find that this is not
+      particularly difficult to program, but it is more difficult to actually
+      test, since you will probably need a physical computer to do so.
+</P>
+<P>
+
+</P>
+<LI>You can use the PS/2 keyboard controller to toggle the ScrollLock,
+      NumLock and CapsLock LEDs on the keyboard!  Write code to control these
+      LEDs, and incorporate them into your game/demo.  (+3 points)
+<P>
+
+</UL>
+<A NAME="Project 3--Threads"></A>
+<HR SIZE="6">
+<TABLE CELLPADDING=1 CELLSPACING=1 BORDER=0>
+<TR><TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_3.html#SEC36"> &lt;&lt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_4.html#SEC54"> &gt;&gt; </A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT"> &nbsp; <TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos.html#SEC_Top">Top</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos.html#SEC_Contents">Contents</A>]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[Index]</TD>
+<TD VALIGN="MIDDLE" ALIGN="LEFT">[<A HREF="pintos_abt.html#SEC_About"> ? </A>]</TD>
+</TR></TABLE>
+<BR>
+<FONT SIZE="-1">
+This document was generated
+by <I>Donnie Pinkston</I> on <I>January, 14 2016</I>
+using <A HREF="http://texi2html.cvshome.org"><I>texi2html</I></A>
+</FONT>
+
+</BODY>
+</HTML>
+
+<!-- Localized -->
