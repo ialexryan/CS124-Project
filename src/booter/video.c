@@ -51,28 +51,24 @@
     *video = colors;
  }
 
-// TODO this isn't working and I'm not sure why. It should print the first 3 letters
-// Other code in this file stops working if this is uncommented, even if it's not called...
-// update: it seems that calling write_char more than twice in a row also causes the same crash.
-//
-// void display_string(int x, int y, char color, char* characters) {
-//     volatile char *video = (volatile char*)VIDEO_BUFFER;
-//     int offset = x + y * 80;
-//     video += offset * 2;
-//     int i;
-//     for (i = 0; i < 3; i++) {
-//         *video = characters[i];
-//         video++;
-//         *video = color;
-//         video++;
-//     }
-// }
+
+void write_string(int x, int y, char color, char* characters) {
+    volatile char *video = (volatile char*)VIDEO_BUFFER;
+    int offset = x + y * 80;
+    video += offset * 2;
+    while (*characters != '\0') {
+        *video = *characters;
+        characters++;
+        video++;
+        *video = color;
+        video++;
+    }
+}
 
 void init_video(void) {
     /* TODO:  Do any video display initialization you might want to do, such
      *        as clearing the screen, initializing static variable state, etc.
      */
     clear_screen(color_byte(RED, GREEN));
-    write_char(20, 5, color_byte(CYAN, MAGENTA), 'H');
-    write_char(21, 5, color_byte(CYAN, MAGENTA), 'i');
+    write_string(40, 17, color_byte(CYAN, MAGENTA), "Hello, world!");
 }
