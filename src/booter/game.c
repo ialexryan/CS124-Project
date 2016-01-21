@@ -26,5 +26,9 @@ void c_start(void) {
     draw_board(VIDEO_BUFFER, board);
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
-    while (1) {}
+    while (1) {
+        if (!isemptyqueue()) {
+            key k = dequeue();
+        }
+    }
 }
