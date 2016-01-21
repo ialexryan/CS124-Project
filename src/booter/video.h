@@ -46,4 +46,10 @@ void init_video(void);
 void clear_screen(color_pair color);
 void draw_board(volatile pixel *p, int board[][BOARD_SIZE]);
 
+typedef struct {
+    int board[BOARD_SIZE][BOARD_SIZE];
+    int offsets[BOARD_SIZE][BOARD_SIZE];
+    shift_direction direction;
+} animation_descriptor;
+
 #endif /* VIDEO_H */

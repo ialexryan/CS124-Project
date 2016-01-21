@@ -22,7 +22,7 @@ void c_start(void) {
     enable_interrupts();
 
     int board[BOARD_SIZE][BOARD_SIZE] = { };
-    int offset[BOARD_SIZE][BOARD_SIZE] = { };
+    animation_descriptor descriptor = { };
     initialize(board);
     init_video();
 
@@ -30,7 +30,15 @@ void c_start(void) {
     while (1) {
         if (!isemptyqueue()) {
             shift_direction direction = key_direction(dequeue());
-            shift(board, direction, offset);
+            
+            // Setup animation
+            copy_board(board, descriptor.board);
+            descriptor.direction = direction;
+            
+            // Only add a box if the pieces actually move
+            if (shift(board, direction, descriptor.offsets)) {
+                add_random_box(board);
+            }
             
             init_video();
             draw_board(VIDEO_BUFFER, board);
