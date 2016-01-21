@@ -48,9 +48,11 @@ void c_start(void) {
             }
             
             int num_frames = frame_count(descriptor.direction);
-            for (int frame = 0; frame < num_frames; frame++) {
+            for (int frame = 0; frame < 100*num_frames; frame++) {
                 init_video();
                 draw_board_frame(descriptor, frame);
+                
+//                sleep(1000);
             }
             
             if (!move_available(board)) {
