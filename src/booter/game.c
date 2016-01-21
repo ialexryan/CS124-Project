@@ -1,4 +1,4 @@
-
+//
 #include "video.h"
 #include "board.h"
 #include "interrupts.h"
@@ -32,7 +32,11 @@ void c_start(void) {
         if (!isemptyqueue()) {
             key k = dequeue();
             if (k == enter_key) {
+                for (int *b = *board; b < *board + BOARD_SIZE * BOARD_SIZE; b++) *b = 0;
                 initialize(board);
+                init_video();
+                draw_board(board);
+                continue;
             } else {
                 shift_direction direction = key_to_direction(k);
 
@@ -48,12 +52,16 @@ void c_start(void) {
             }
             
             int num_frames = frame_count(descriptor.direction);
-            for (int frame = 0; frame < 100*num_frames; frame++) {
-                init_video();
+            int incr = get_axis(descriptor.direction) == horizontal_axis ? 12 : 2;
+            int frame = 0;
+            while (frame <= num_frames) {
                 draw_board_frame(descriptor, frame);
-                
-//                sleep(1000);
+                sleep(30);
+
+                if (frame == num_frames) break;
+                else frame = min(frame + incr, num_frames);
             }
+            draw_board(board);
             
             if (!move_available(board)) {
                 draw_failure_message();

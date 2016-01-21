@@ -50,40 +50,6 @@ void clear_screen_advanced(pixel value, update_options options) {
    }
 }
 
-typedef enum {
-    vertical_axis,
-    horizontal_axis
-} shift_axis;
-
-shift_axis get_axis(shift_direction direction) {
-    switch (direction) {
-        case up_direction:
-        case down_direction:
-            return vertical_axis;
-        case left_direction:
-        case right_direction:
-            return horizontal_axis;
-    }
-}
-
-shift_axis opposite_axis(shift_axis axis) {
-    switch (axis) {
-        case vertical_axis:
-            return horizontal_axis;
-        case horizontal_axis:
-            return vertical_axis;
-    }
-}
-
-int axis_dimension(shift_axis axis) {
-    switch (axis) {
-        case vertical_axis:
-            return BOX_HEIGHT;
-        case horizontal_axis:
-            return BOX_EFFECTIVE_WIDTH;
-    }
-}
-
 typedef struct {
     point top_left;
     point bottom_right;
@@ -116,13 +82,13 @@ point offset(point p, point q) {
 point dir_offset(point p, int z, shift_direction d) {
     switch (d) {
         case left_direction:
-            return (point){ .x = p.x - 1, .y = p.y };
+            return (point){ .x = p.x - z, .y = p.y };
         case right_direction:
-            return (point){ .x = p.x + 1, .y = p.y };
+            return (point){ .x = p.x + z, .y = p.y };
         case up_direction:
-            return (point){ .x = p.x, .y = p.y - 1 };
+            return (point){ .x = p.x, .y = p.y - z };
         case down_direction:
-            return (point){ .x = p.x, .y = p.y + 1 };
+            return (point){ .x = p.x, .y = p.y + z };
     }
 }
 
@@ -281,9 +247,9 @@ void draw_board_frame(animation_descriptor descriptor, int frame) {
     
     rectangle bounds = { .top_left = {.x = centerx - 2, .y = centery - 1}, .bottom_right = {.x = centerx + 2 + BOARD_WIDTH, .y = centery + 1 + BOARD_HEIGHT}};
     color_rectangle(VIDEO_BUFFER, bounds, (pixel){
-        .character = '\0',
+        .character = ' ',
         .color = (color_pair){.foreground = DARK_GRAY, .background = WHITE}
-    }, update_color);
+    }, update_all);
     draw_rectangle_outline(VIDEO_BUFFER, bounds, 0);
     
     volatile pixel *screen = VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx);
@@ -292,7 +258,10 @@ void draw_board_frame(animation_descriptor descriptor, int frame) {
         for (int x = 0; x < BOARD_SIZE; x++) {
             int current_offset = frame_offset((point){ .x = x, .y = y }, descriptor, frame);
             draw_boxed_number(screen, (boxed_number){
-                .location = dir_offset(box_point_to_grid_point((point){ .x = x, .y = y }), current_offset, descriptor.direction),
+                .location = dir_offset(box_point_to_grid_point((point){
+                    .x = x,
+                    .y = y
+                }), current_offset, descriptor.direction),
                 .number = descriptor.board[y][x]
             });
         }
@@ -313,7 +282,13 @@ void draw_board(int board[][BOARD_SIZE]) {
     volatile pixel *screen = VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx);
     for (int y = 0; y < BOARD_SIZE; y++) {
         for (int x = 0; x < BOARD_SIZE; x++) {
-            draw_boxed_number(screen, (boxed_number){ .location = (point){ .x = x * (BOX_WIDTH + BOX_SPACING), .y = y * BOX_HEIGHT }, .number = board[y][x] });
+            draw_boxed_number(screen, (boxed_number){
+                .location = (point){
+                    .x = x * (BOX_WIDTH + BOX_SPACING),
+                    .y = y * BOX_HEIGHT
+                },
+                .number = board[y][x]
+            });
         }
     }
 }

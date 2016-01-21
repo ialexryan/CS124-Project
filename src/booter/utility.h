@@ -26,4 +26,5 @@ typedef enum {
 
 shift_direction key_to_direction(key k);
 
+
 #endif /* UTILITY_H */

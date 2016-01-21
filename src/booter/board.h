@@ -22,4 +22,13 @@ void update_high_score(int board[][BOARD_SIZE]);
 
 int high_score;
 
+typedef enum {
+    vertical_axis,
+    horizontal_axis
+} shift_axis;
+
+shift_axis get_axis(shift_direction direction);
+shift_axis opposite_axis(shift_axis axis);
+int axis_dimension(shift_axis axis);
+
 #endif /* BOARD_H */

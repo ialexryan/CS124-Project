@@ -174,3 +174,33 @@ int move_available(int board[][BOARD_SIZE]) {
     }
     return 0;
 }
+
+
+shift_axis get_axis(shift_direction direction) {
+    switch (direction) {
+        case up_direction:
+        case down_direction:
+            return vertical_axis;
+        case left_direction:
+        case right_direction:
+            return horizontal_axis;
+    }
+}
+
+shift_axis opposite_axis(shift_axis axis) {
+    switch (axis) {
+        case vertical_axis:
+            return horizontal_axis;
+        case horizontal_axis:
+            return vertical_axis;
+    }
+}
+
+int axis_dimension(shift_axis axis) {
+    switch (axis) {
+        case vertical_axis:
+            return BOX_HEIGHT;
+        case horizontal_axis:
+            return BOX_EFFECTIVE_WIDTH;
+    }
+}
