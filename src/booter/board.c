@@ -44,6 +44,11 @@ int add_random_box(int board[][BOARD_SIZE]) {
 }
 
 void initialize(int board[][BOARD_SIZE]) {
+    for (int y = 0; y < BOARD_SIZE; y++) {
+        for (int x = 0; x < BOARD_SIZE; x++) {
+            board[x][y] = 0;
+        }
+    }
     int count = 0;
     while (count < 2) {
         count += add_random_box(board);
@@ -185,7 +190,7 @@ void copy_board(int from[][BOARD_SIZE], int to[][BOARD_SIZE]) {
 
 int move_available(int board[][BOARD_SIZE]) {
     if (num_available(board) > 0) return  1;
-    
+
     // Check if any adjacent spaces are the same number and can merge.
     for (int y = 0; y < BOARD_SIZE; y++) for (int x = 0; x < BOARD_SIZE; x++) {
         if (x + 1 < BOARD_SIZE) if (board[y][x] == board[y][x + 1]) return 1;

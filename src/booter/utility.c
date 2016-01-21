@@ -41,7 +41,7 @@ int min(int lhs, int rhs) {
     return (lhs < rhs) ? lhs : rhs;
 }
 
-shift_direction key_direction(key k) {
+shift_direction key_to_direction(key k) {
     switch (k) {
         case up_key:
             return up_direction;

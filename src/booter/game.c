@@ -29,19 +29,22 @@ void c_start(void) {
     /* Loop forever, so that we don't fall back into the bootloader code. */
     while (1) {
         if (!isemptyqueue()) {
-            shift_direction direction = key_direction(dequeue());
+            key k = dequeue();
+            if (k == enter_key) {
+                initialize(board);
+            } else {
+                shift_direction direction = key_to_direction(k);
 
-            // Setup animation
-            copy_board(board, descriptor.board);
-            descriptor.direction = direction;
+                // Setup animation
+                copy_board(board, descriptor.board);
+                descriptor.direction = direction;
 
-            // Only add a box if the pieces actually move
-            if (shift(board, direction, descriptor.offsets)) {
-                add_random_box(board);
+                // Only add a box if the pieces actually move
+                if (shift(board, direction, descriptor.offsets)) {
+                    add_random_box(board);
+                }
             }
-
             init_video();
-
             draw_board(board);
         }
     }
