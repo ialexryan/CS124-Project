@@ -30,18 +30,23 @@ void c_start(void) {
     while (1) {
         if (!isemptyqueue()) {
             shift_direction direction = key_direction(dequeue());
-            
+
             // Setup animation
             copy_board(board, descriptor.board);
             descriptor.direction = direction;
-            
+
             // Only add a box if the pieces actually move
             if (shift(board, direction, descriptor.offsets)) {
                 add_random_box(board);
             }
-            
+
             init_video();
-            draw_board(VIDEO_BUFFER, board);
+            int board_width = (BOX_WIDTH + BOX_SPACING) * BOARD_SIZE - BOX_SPACING;
+            int board_height = BOX_HEIGHT * BOARD_SIZE;
+            int centerx = (VIDEO_WIDTH - board_width) / 2;
+            int centery = (VIDEO_HEIGHT - board_height) / 2;
+
+            draw_board(VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx), board);
         }
     }
 }
