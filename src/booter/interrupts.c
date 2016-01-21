@@ -1,6 +1,7 @@
 #include "interrupts.h"
 #include "boot.h"
 #include "ports.h"
+#include "handlers.h"
 
 #include <stdint.h>
 
@@ -13,6 +14,23 @@
 
 #define NUM_INTERRUPTS 256
 
+typedef union {
+    struct {
+        uint16_t lower_part;
+        uint16_t higher_part;
+    };
+    void *pointer;
+} split_pointer;
+
+typedef union {
+    struct {
+        uint8_t type : 4;
+        uint8_t storage : 1;
+        uint8_t privilege : 2;
+        uint8_t present : 1;
+    };
+    uint8_t raw_value;
+} IDT_TypeAttribute;
 
 /* This is the structure of a single interrupt descriptor.  For 32-bit
  * interrupt addresses, the address is split across two 16-bit fields.
@@ -27,8 +45,7 @@ typedef struct IDT_Descriptor {
 
 
 /* The interrupt descriptor table we will use. */
-static IDT_Descriptor interrupt_descriptor_table[NUM_INTERRUPTS];
-
+static IDT_Descriptor interrupt_descriptor_table[NUM_INTERRUPTS] = { 0 };
 
 /* Load a new interrupt descriptor table.  The function takes two arguments:
  *
@@ -166,17 +183,14 @@ void IRQ_clear_mask(unsigned char IRQline) {
  */
 
 
-/* Initialize interrupts */
+/* Initialize interrupts and load interrupt descriptor table */
 void init_interrupts(void) {
-    /* TODO:  INITIALIZE AND LOAD THE INTERRUPT DESCRIPTOR TABLE.
-     *
-     *        The entire Interrupt Descriptor Table should be zeroed out.
-     *        (Unfortunately you have to do this yourself since you don't
-     *        have the C Standard Library to use...)
-     *
-     *        Once the entire IDT has been cleared, use the lidt() function
-     *        defined above to install our IDT.
+    /* Note that we do not have to zero out the Interrupt Descriptor Table
+     * since we initialized it to zero on declaration.
      */
+    
+    /* Use the lidt() function to install our IDT */
+    lidt(interrupt_descriptor_table, NUM_INTERRUPTS * sizeof(IDT_Descriptor));
 
     /* Remap the Programmable Interrupt Controller to deliver its interrupts
      * to 0x20-0x33 (32-45), so that they don't conflict with the IA32 built-
@@ -188,31 +202,27 @@ void init_interrupts(void) {
     PIC_remap(0x20, 0x27);
 }
 
+#define GATE_TYPE_INTERRUPT_32 0xE
 
 /* Installs an interrupt handler into the Interrupt Descriptor Table.
  * The handler is expected to be an assembly language handler function,
  * not a C function, although the handler might call a C function.
  */
 void install_interrupt_handler(int num, void *handler) {
-    /* TODO:  IMPLEMENT.  See IA32 Manual, Volume 3A, Section 5.11 for an
-     *        overview of the contents of IDT Descriptors.  These are
-     *        Interrupt Gates.
-     *
-     *        The handler address must be split into two halves, so that it
-     *        can be stored into the IDT descriptor.
-     *
-     *        The segment selector should be the code-segment selector
-     *        that was set up in the bootloader.  (See boot.h for the
-     *        appropriate definition.)
-     *
-     *        The DPL component of the "type_attr" field specifies the
-     *        required privilege level to invoke the interrupt.  You can
-     *        set this to 0 (which allows anything to invoke the interrupt),
-     *        but its value isn't really relevant to us.
-     *
-     *        REMOVE THIS COMMENT WHEN YOU WRITE THE CODE.  (FEEL FREE TO
-     *        INCORPORATE THE ABOVE COMMENTS IF YOU WISH.)
-     */
+    // Set IDT entry
+    split_pointer split_handler = { .pointer = handler };
+    interrupt_descriptor_table[num] = (IDT_Descriptor){
+        .offset_15_0 = split_handler.lower_part,
+        .selector = SEL_CODESEG,
+        .zero = 0,
+        .type_attr = (IDT_TypeAttribute){
+            .type = GATE_TYPE_INTERRUPT_32,
+            .storage = 0,
+            .privilege = 0,
+            .present = 1
+        }.raw_value,
+        .offset_31_16 = split_handler.higher_part
+    };
 }
 
 

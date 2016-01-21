@@ -1,5 +1,7 @@
 #include "timer.h"
 #include "ports.h"
+#include "handlers.h"
+#include "interrupts.h"
 
 /*============================================================================
  * PROGRAMMABLE INTERVAL TIMER
@@ -45,7 +47,7 @@
  *        You should probably declare variables "volatile" so that the
  *        compiler knows they can be changed by exceptional control flow.
  */
-
+static volatile int count = 0;
 
 void init_timer(void) {
 
@@ -61,9 +63,9 @@ void init_timer(void) {
     outb(PIT_CHAN0_DATA, 0x9c);
     outb(PIT_CHAN0_DATA, 0x2e);
 
-    /* TODO:  Initialize other timer state here. */
+    install_interrupt_handler(TIMER_INTERRUPT, irq0_handler);
+}
 
-    /* TODO:  You might want to install your timer interrupt handler
-     *        here as well.
-     */
+void timer_handler(void){
+    
 }

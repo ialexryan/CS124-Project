@@ -6,11 +6,11 @@
 #     we invoke gcc to assemble boot.S, and we use gcc to process the
 #     linker script, and so forth.
 
-CFLAGS=-g
+CFLAGS=-g -std=gnu11
 
 BOOT_BIN = boot.bin
 
-OBJS = game.o video.o interrupts.o handlers.o timer.o keyboard.o
+OBJS = game.o video.o board.o interrupts.o handlers.o timer.o keyboard.o
 PROGRAM_OBJ = program.o
 PROGRAM_BIN = program.bin
 

@@ -1,6 +1,7 @@
 #ifndef VIDEO_H
 #define VIDEO_H
 
+#include "board.h"
 
 /* Available colors from the 16-color palette used for EGA and VGA, and
  * also for text-mode VGA output.
@@ -22,8 +23,27 @@
 #define YELLOW        14
 #define WHITE         15
 
+typedef union {
+    struct {
+        char foreground : 4;
+        char background : 4;
+    };
+    char raw_value;
+} color_pair;
+
+typedef struct {
+    char character;
+    color_pair color;
+} pixel;
+
+#define VIDEO_WIDTH 80
+#define VIDEO_HEIGHT 25
+#define VIDEO_SIZE ((VIDEO_WIDTH) * (VIDEO_HEIGHT))
+
+#define VIDEO_BUFFER ((volatile pixel*) 0xB8000)
 
 void init_video(void);
-
+void clear_screen(color_pair color);
+void draw_board(volatile pixel *p, int board[][BOARD_SIZE]);
 
 #endif /* VIDEO_H */

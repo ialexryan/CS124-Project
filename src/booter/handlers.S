@@ -29,3 +29,35 @@
 #
 #                popa    # Restore all registers
 #                iret    # Go back to interrupted code
+
+.align 4
+.globl irq0_handler # Keyboard
+irq0_handler:
+    pusha   # Save registers from the interrupted code!
+    cld     # If calling C code, clear direction flag
+
+    call timer_handler
+
+    # Acknowledge the interrupt so that the PIC will send more
+    # interrupts!  We do this by sending 0x20 to port 0x20.
+    mov     $0x20, %al
+    out     %al, $0x20
+
+    popa    # Restore all registers
+    iret    # Go back to interrupted code
+
+.align 4
+.globl irq1_handler # Keyboard
+irq1_handler:
+    pusha   # Save registers from the interrupted code!
+    cld     # If calling C code, clear direction flag
+
+    call keypress_handler
+
+    # Acknowledge the interrupt so that the PIC will send more
+    # interrupts!  We do this by sending 0x20 to port 0x20.
+    mov     $0x20, %al
+    out     %al, $0x20
+
+    popa    # Restore all registers
+    iret    # Go back to interrupted code
