@@ -1,4 +1,4 @@
-# CS124-Project
+# 2048 KiB
 
 A clone of the popular clone [2048](https://gabrielecirulli.github.io/2048/) written as a PC booter.
 
