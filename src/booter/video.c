@@ -262,8 +262,12 @@ void draw_failure_message() {
     }, update_color);
 }
 
-int keyframe_offset(point p, animation_descriptor descriptor, int frame) {
+int frame_offset(point p, animation_descriptor descriptor, int frame) {
     return frame * descriptor.offsets[p.y][p.x] / axis_dimension(get_axis(descriptor.direction));
+}
+
+point box_point_to_grid_point(point p) {
+    return (point){ .x = p.x * BOX_EFFECTIVE_WIDTH, .y = p.y * BOX_HEIGHT };
 }
 
 int frame_count(shift_direction direction) {
@@ -271,14 +275,22 @@ int frame_count(shift_direction direction) {
     return dimension * dimension;
 }
 
-point box_point_to_grid_point(point p) {
-    return (point){ .x = p.x * BOX_EFFECTIVE_WIDTH, .y = p.y * BOX_HEIGHT };
-}
+void draw_board_frame(animation_descriptor descriptor, int frame) {
+    int centerx = (VIDEO_WIDTH - BOARD_WIDTH) / 2;
+    int centery = (VIDEO_HEIGHT - BOARD_HEIGHT) / 2;
+    
+    rectangle bounds = { .top_left = {.x = centerx - 2, .y = centery - 1}, .bottom_right = {.x = centerx + 2 + BOARD_WIDTH, .y = centery + 1 + BOARD_HEIGHT}};
+    color_rectangle(VIDEO_BUFFER, bounds, (pixel){
+        .character = '\0',
+        .color = (color_pair){.foreground = DARK_GRAY, .background = WHITE}
+    }, update_color);
+    draw_rectangle_outline(VIDEO_BUFFER, bounds, 0);
+    
+    volatile pixel *screen = VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx);
 
-void draw_board_keyframe(volatile pixel *screen, animation_descriptor descriptor, int frame) {
     for (int y = 0; y < BOARD_SIZE; y++) {
         for (int x = 0; x < BOARD_SIZE; x++) {
-            int current_offset = keyframe_offset((point){ .x = x, .y = y }, descriptor, frame);
+            int current_offset = frame_offset((point){ .x = x, .y = y }, descriptor, frame);
             draw_boxed_number(screen, (boxed_number){
                 .location = dir_offset(box_point_to_grid_point((point){ .x = x, .y = y }), current_offset, descriptor.direction),
                 .number = descriptor.board[y][x]

@@ -1,6 +1,6 @@
 
-#include "board.h"
 #include "video.h"
+#include "board.h"
 #include "interrupts.h"
 #include "keyboard.h"
 #include "timer.h"
@@ -46,8 +46,13 @@ void c_start(void) {
                     update_high_score(board);
                 }
             }
-            init_video();
-            draw_board(board);
+            
+            int num_frames = frame_count(descriptor.direction);
+            for (int frame = 0; frame < num_frames; frame++) {
+                init_video();
+                draw_board_frame(descriptor, frame);
+            }
+            
             if (!move_available(board)) {
                 draw_failure_message();
             }
