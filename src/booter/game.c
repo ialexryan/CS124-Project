@@ -41,12 +41,8 @@ void c_start(void) {
             }
 
             init_video();
-            int board_width = (BOX_WIDTH + BOX_SPACING) * BOARD_SIZE - BOX_SPACING;
-            int board_height = BOX_HEIGHT * BOARD_SIZE;
-            int centerx = (VIDEO_WIDTH - board_width) / 2;
-            int centery = (VIDEO_HEIGHT - board_height) / 2;
 
-            draw_board(VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx), board);
+            draw_board(board);
         }
     }
 }

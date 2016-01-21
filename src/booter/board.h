@@ -9,6 +9,9 @@
 #define BOX_WIDTH 6
 #define BOX_SPACING 1
 
+#define BOARD_WIDTH (BOX_WIDTH + BOX_SPACING) * BOARD_SIZE - BOX_SPACING
+#define BOARD_HEIGHT BOX_HEIGHT * BOARD_SIZE
+
 void initialize(int board[][BOARD_SIZE]);
 int shift(int board[][BOARD_SIZE], shift_direction dir, /* out parameter */ int amount[][BOARD_SIZE]);
 void copy_board(int from[][BOARD_SIZE], int to[][BOARD_SIZE]);

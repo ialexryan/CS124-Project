@@ -96,6 +96,18 @@ void clear_screen(color_pair color) {
    }
 }
 
+void color_rectangle(rectangle r, color_pair c) {
+    volatile pixel *here = VIDEO_BUFFER;
+    here = apply_offset(here, r.top_left);
+    for (int y = 0; y < rectangle_height(r); y++) {
+        for (int x = 0; x < rectangle_width(r); x++) {
+            here->color = c;
+            here++;
+        }
+        here += VIDEO_WIDTH - rectangle_width(r);
+    }
+}
+
 volatile pixel *draw_string(volatile pixel *p, char *string) {
     while (*string != '\0') {
         p->character = *string;
@@ -170,12 +182,16 @@ void draw_boxed_number(volatile pixel *screen, boxed_number box) {
     draw_number_rtl(apply_offset(screen, offset(box.location, (point){ .x = BOX_WIDTH - 2, .y = 1 })), box.number);
 }
 
-void draw_board(volatile pixel *screen, int board[][BOARD_SIZE]) {
+void draw_board(int board[][BOARD_SIZE]) {
+    int centerx = (VIDEO_WIDTH - BOARD_WIDTH) / 2;
+    int centery = (VIDEO_HEIGHT - BOARD_HEIGHT) / 2;
+    volatile pixel *screen = VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx);
     for (int y = 0; y < BOARD_SIZE; y++) {
         for (int x = 0; x < BOARD_SIZE; x++) {
             draw_boxed_number(screen, (boxed_number){ .location = (point){ .x = x * (BOX_WIDTH + BOX_SPACING), .y = y * BOX_HEIGHT }, .number = board[y][x] });
         }
     }
+    color_rectangle((rectangle){ .top_left = {.x = centerx - 2, .y = centery - 1}, .bottom_right = {.x = centerx + 2 + BOARD_WIDTH, .y = centery + 1 + BOARD_HEIGHT}}, (color_pair){.foreground = RED, .background = CYAN});
 }
 
 void init_video(void) {
