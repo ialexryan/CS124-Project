@@ -129,34 +129,39 @@ volatile pixel *draw_number_rtl(volatile pixel *p /* draws from right to left */
     return p;
 }
 
-void draw_decorated_horizontal_line(volatile pixel *screen, int length) {
-    if    (length-- > 0) (screen++)->character = '*';
-    while (length-- > 1) (screen++)->character = '-';
-    screen->character = '*';
+void draw_top_decorated_horizontal_line(volatile pixel *screen, int length) {
+    if    (length-- > 0) (screen++)->character = 201;
+    while (length-- > 1) (screen++)->character = 205;
+    screen->character = 187;
+}
+void draw_bottom_decorated_horizontal_line(volatile pixel *screen, int length) {
+    if    (length-- > 0) (screen++)->character = 200;
+    while (length-- > 1) (screen++)->character = 205;
+    screen->character = 188;
 }
 
 void draw_inner_rectangle(volatile pixel *screen, int length) {
-    if    (length-- > 0) (screen++)->character = '|';
+    if    (length-- > 0) (screen++)->character = 186;
     while (length-- > 1) (screen++)->character = ' ';
-    (screen++)->character = '|';
+    (screen++)->character = 186;
 }
 
 void draw_rectangle_outline(volatile pixel *screen, rectangle r) {
     int width  = rectangle_width(r);
     int height = rectangle_height(r);
     if (width <= 0 || height <= 0) return;
-    
+
     screen = apply_offset(screen, r.top_left);
-    
+
     if (height-- > 0)    {
-        draw_decorated_horizontal_line(screen, width);
+        draw_top_decorated_horizontal_line(screen, width);
         screen = apply_offset_vertical(screen, 1);
     }
     while (height-- > 1) {
         draw_inner_rectangle(screen, width);
         screen = apply_offset_vertical(screen, 1);
     }
-    draw_decorated_horizontal_line(screen, width);
+    draw_bottom_decorated_horizontal_line(screen, width);
 }
 
 void draw_boxed_number(volatile pixel *screen, boxed_number box) {
@@ -174,5 +179,5 @@ void draw_board(volatile pixel *screen, int board[][BOARD_SIZE]) {
 }
 
 void init_video(void) {
-    clear_screen((color_pair){ .foreground = RED, .background = WHITE });
+    clear_screen((color_pair){ .foreground = RED, .background = YELLOW });
 }
