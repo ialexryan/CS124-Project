@@ -13,18 +13,22 @@ void c_start(void) {
      *        enable_interrupts() to start interrupt handling, and go on to
      *        do whatever else you decide to do!
      */
-    
+
+    seed_rand_with_time();
     init_interrupts();
     init_keyboard();
     init_timer();
     enable_interrupts();
-    
+
     int board[BOARD_SIZE][BOARD_SIZE] = { };
     initialize(board);
     init_video();
     draw_board(VIDEO_BUFFER, board);
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
-    while (1) {}
+    while (1) {
+        if (!isemptyqueue()) {
+            key k = dequeue();
+        }
+    }
 }
-

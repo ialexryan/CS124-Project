@@ -1,6 +1,6 @@
 #include "ports.h"
-#include "video.h"
 #include "handlers.h"
+#include "keyboard.h"
 #include "interrupts.h"
 
 /* This is the IO port of the PS/2 controller, where the keyboard's scan
@@ -40,10 +40,85 @@
  */
 
 
+static unsigned int modified = 0;
+
+// citation: this is a standard circular queue implementation from a data structures book
+static int front = -1;
+static int rear = -1;
+static int capacity = 50;
+static key array[50];
+
+int isemptyqueue() {
+   return(front==-1);
+}
+int isfullqueue() {
+   return((rear+1)%capacity==rear);
+}
+int queuesize() {
+   return(capacity-rear+front+1)%capacity;
+}
+static void enqueue(key x) {
+   int ints_on = disable_interrupts();
+   if(isfullqueue())
+      return; // queue overflow
+   else{
+      rear=(rear+1)%capacity;
+      array[rear]=x;
+      if(front==-1) {
+         front=rear;
+      }
+   }
+   if (ints_on) enable_interrupts();
+}
+key dequeue() {
+   int ints_on = disable_interrupts();
+   key data=0;
+   if(isemptyqueue()) {
+      return -1; // queue underflow
+   }
+   else {
+      data=array[front];
+      if(front==rear)
+         front=rear=-1;
+      else
+         front=(front+1)%capacity;
+   }
+   if (ints_on) enable_interrupts();
+   return data;
+}
+
+
 void init_keyboard(void) {
     install_interrupt_handler(KEYBOARD_INTERRUPT, irq1_handler);
 }
 
 void keypress_handler(void) {
-//    init_video();
+    unsigned char scan_code = inb(KEYBOARD_PORT);
+
+    if (modified) {
+        switch(scan_code) {
+            case LEFT_KEY_SCANCODE:
+                enqueue(left);
+                break;
+            case RIGHT_KEY_SCANCODE:
+                enqueue(right);
+                break;
+            case UP_KEY_SCANCODE:
+                enqueue(up);
+                break;
+            case DOWN_KEY_SCANCODE:
+                enqueue(down);
+                break;
+        }
+        modified = 0;
+    } else {
+        switch(scan_code) {
+            case MODIFIER_SCANCODE:
+                modified = 1;
+                break;
+            case ENTER_KEY_SCANCODE:
+                enqueue(enter);
+                break;
+        }
+    }
 }
