@@ -67,5 +67,12 @@ void init_timer(void) {
 }
 
 void timer_handler(void){
-    return;
+    count++;
+}
+
+void sleep(int milliseconds) {
+    int start = count;
+    while ((count - start) * 10 < milliseconds) {
+
+    }
 }
