@@ -3,6 +3,8 @@
 
 #define NUM_STARTING_PIECES 2
 
+int high_score = 2;
+
 int is_available(int board[][BOARD_SIZE], point p) {
     return board[p.y][p.x] == 0;
 }
@@ -18,6 +20,13 @@ int num_available(int board[][BOARD_SIZE]) {
         if (is_available(board, (point){ .x = x, .y = y } )) count++;
     }
     return count;
+}
+
+void update_high_score(int board[][BOARD_SIZE]) {
+    for (int y = 0; y < BOARD_SIZE; y++)
+    for (int x = 0; x < BOARD_SIZE; x++) {
+        if (board[y][x] > high_score) high_score = board[y][x];
+    }
 }
 
 point indexed_available_box(int board[][BOARD_SIZE], int i) {

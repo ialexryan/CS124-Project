@@ -203,4 +203,6 @@ void init_video(void) {
     clear_screen((color_pair){ .foreground = RED, .background = YELLOW });
     draw_string(VIDEO_BUFFER, "Play using the arrow keys.");
     draw_string(VIDEO_BUFFER + VIDEO_WIDTH, "Enter to start a new game.");
+    draw_string(VIDEO_BUFFER + 64, "HIGH SCORE: ");
+    draw_number_rtl(VIDEO_BUFFER + 79, high_score);
 }

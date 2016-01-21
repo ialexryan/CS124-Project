@@ -43,6 +43,7 @@ void c_start(void) {
                 // Only add a box if the pieces actually move
                 if (shift(board, direction, descriptor.offsets)) {
                     add_random_box(board);
+                    update_high_score(board);
                 }
             }
             init_video();
