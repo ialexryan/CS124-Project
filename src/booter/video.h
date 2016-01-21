@@ -46,6 +46,17 @@ void init_video(void);
 void clear_screen(color_pair color);
 void draw_board(volatile pixel *p, int board[][BOARD_SIZE]);
 
+#define BOX_CORNER_DECORATOR '*'
+#define BOX_VERTICAL_DECORATOR '|'
+#define BOX_HORIZONTAL_DECORATOR '-'
+
+#define FRAME_COUNT (BOX_WIDTH * BOX_HEIGHT * 3)
+
+typedef struct {
+    point location;
+    int number;
+} boxed_number;
+
 typedef struct {
     int board[BOARD_SIZE][BOARD_SIZE];
     int offsets[BOARD_SIZE][BOARD_SIZE];

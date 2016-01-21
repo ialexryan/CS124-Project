@@ -46,6 +46,48 @@
 //   }
 //}
 
+typedef struct {
+    point top_left;
+    point bottom_right;
+} rectangle;
+
+int rectangle_width(rectangle r) {
+    return r.bottom_right.x - r.top_left.x;
+}
+
+int rectangle_height(rectangle r) {
+    return r.bottom_right.y - r.top_left.y;
+}
+
+volatile pixel *apply_offset(volatile pixel *screen, point p) {
+    return screen + p.x + (p.y * VIDEO_WIDTH);
+}
+
+volatile pixel *apply_offset_vertical(volatile pixel *screen, int y) {
+    return apply_offset(screen, (point){ .x = 0, .y = y });
+}
+
+volatile pixel *apply_offset_horizontal(volatile pixel *screen, int x) {
+    return apply_offset(screen, (point){ .x = x, .y = 0 });
+}
+
+point offset(point p, point q) {
+    return (point){ .x = p.x + q.x, .y = p.y + q.y };
+}
+
+point dir_offset(point p, int z, shift_direction d) {
+    switch (d) {
+        case left_direction:
+            return (point){ .x = p.x - 1, .y = p.y };
+        case right_direction:
+            return (point){ .x = p.x + 1, .y = p.y };
+        case up_direction:
+            return (point){ .x = p.x, .y = p.y - 1 };
+        case down_direction:
+            return (point){ .x = p.x, .y = p.y + 1 };
+    }
+}
+
 void clear_screen(color_pair color) {
     volatile pixel *end = VIDEO_BUFFER + VIDEO_SIZE;
     for (volatile pixel *p = VIDEO_BUFFER; p < end; p++) {
@@ -87,48 +129,49 @@ volatile pixel *draw_number_rtl(volatile pixel *p /* draws from right to left */
     return p;
 }
 
-volatile pixel *offset(volatile pixel *p, int x, int y) {
-    return p + x + (y * VIDEO_WIDTH);
+void draw_decorated_horizontal_line(volatile pixel *screen, int length) {
+    if    (length-- > 0) (screen++)->character = '*';
+    while (length-- > 1) (screen++)->character = '-';
+    screen->character = '*';
 }
 
-void draw_number_box(volatile pixel *p, int number) {
-    if (number == 0) return;
-    draw_string(p, "*----*");
-    draw_string(draw_string(draw_string(offset(p, 0, 1), "|"), "    "), "|");
-    draw_number_rtl(offset(p, 4, 1), number);
-    draw_string(offset(p, 0, 2), "*----*");
+void draw_inner_rectangle(volatile pixel *screen, int length) {
+    if    (length-- > 0) (screen++)->character = '|';
+    while (length-- > 1) (screen++)->character = ' ';
+    (screen++)->character = '|';
 }
 
-void draw_board(volatile pixel *p, int board[][BOARD_SIZE]) {
+void draw_rectangle_outline(volatile pixel *screen, rectangle r) {
+    int width  = rectangle_width(r);
+    int height = rectangle_height(r);
+    if (width <= 0 || height <= 0) return;
+    
+    screen = apply_offset(screen, r.top_left);
+    
+    if (height-- > 0)    {
+        draw_decorated_horizontal_line(screen, width);
+        screen = apply_offset_vertical(screen, 1);
+    }
+    while (height-- > 1) {
+        draw_inner_rectangle(screen, width);
+        screen = apply_offset_vertical(screen, 1);
+    }
+    draw_decorated_horizontal_line(screen, width);
+}
+
+void draw_boxed_number(volatile pixel *screen, boxed_number box) {
+    if (box.number == 0) return;
+    draw_rectangle_outline(screen, (rectangle){ .top_left = box.location, .bottom_right = offset(box.location, (point){ .x = BOX_WIDTH, .y = BOX_HEIGHT }) });
+    draw_number_rtl(apply_offset(screen, offset(box.location, (point){ .x = BOX_WIDTH - 2, .y = 1 })), box.number);
+}
+
+void draw_board(volatile pixel *screen, int board[][BOARD_SIZE]) {
     for (int y = 0; y < BOARD_SIZE; y++) {
         for (int x = 0; x < BOARD_SIZE; x++) {
-            draw_number_box(offset(p, x * 7, y * 3), board[y][x]);
+            draw_boxed_number(screen, (boxed_number){ .location = (point){ .x = x * (BOX_WIDTH + BOX_SPACING), .y = y * BOX_HEIGHT }, .number = board[y][x] });
         }
     }
 }
-
-//
-//volatile pixel *get_pixel(int x, int y) {
-//    return VIDEOBUFFER + x + y * VIDEO_HEIGHT;
-//}
-//
-//void write_string(int x, int y, char *string, col) {
-//    volatile char *pixel = get_pixel(x, y);
-//    while (*string != '\0') {
-//        *pixel
-//        pixel++; string++;
-//    }
-//    
-//    int offset = x + y * 80;
-//    video += offset * 2;
-//    while (*characters != '\0') {
-//        *video = *characters;
-//        characters++;
-//        video++;
-//        *video = colors.raw_value;
-//        video++;
-//    }
-//}
 
 void init_video(void) {
     clear_screen((color_pair){ .foreground = RED, .background = WHITE });
