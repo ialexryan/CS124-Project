@@ -44,31 +44,29 @@ boot_start:
 	mov	$STR_LOADING, %si
 	call	print_str
 
+	# Construct the DAP on the stack (in reverse order)
 	pushl $0x0
 	pushl $0x1
-	pushl $0x20000000 #maybe PROGRAM_BASE_ADDR instead?
-	pushl $0x00FF0010 #(word)sectors to load; (byte)zero; (byte)size of DAP (16)
+	pushl $0x20000000
+	pushl $0x00FF0010 #(word)load 255 sectors; (byte)zero; (byte)size of DAP (16)
 
+	# Set DS:SI to SS:SP
 	mov %ss, %bx
 	mov %bx, %ds
 	mov %sp, %si
 	mov $0x42, %ah
-	int $0x13
+	int $0x13  # read sectors from disk
 
-	jc boot_fail     #carry flag is set on error
+	# Free the memory used for the DAP
+	popl %ebx
+	popl %ebx
+	popl %ebx
+	popl %ebx
+
+	jc boot_fail     # If disk read errors, carry flag is set
 
 	mov	$STR_LOADED, %si
 	call	print_str
-
-	#---------------------------------------------------------------------
-	# TODO:  If you want to do anything else with the computer hardware
-	#        using the BIOS, here is the place to do it.  After this we
-	#        will transition into 32-bit protected mode, and the BIOS will
-	#        no longer be available to use.
-	#
-	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.
-	#        (OR IF YOU DECIDE YOU DON'T WANT TO PUT ANYTHING HERE.)
-	#---------------------------------------------------------------------
 
 	#=====================================================================
 	# Next, set up for transition from 16-bit real mode to 32-bit
@@ -130,8 +128,8 @@ call_c_entry:
 	cld			# C code expects this...
 	movl $0, %ebp		# Null-terminate the program's backtrace
 
-	mov PROGRAM_START_ADDR, %ebx  # Maybe PROGRAM_START_ADDR instead
-	call *%ebx    # If we cared about the contents of EAX/ECX/EDX we'd save them here
+	mov PROGRAM_START_ADDR, %ebx
+	call *%ebx    # If we cared about the contents of EAX/ECX/EDX we'd save them first
 
 
 	#=====================================================================
