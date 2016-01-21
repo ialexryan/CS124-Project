@@ -14,13 +14,23 @@ typedef struct {
 point null_point = { .x = -1, .y = -1 };
 
 #define RAND_MAX 32768
-static int next = 0;
+static int rand_state = 0;
 int rand() {
-    next = next * 1103515245 + 12345;
-    return (unsigned int)(next / 65536) % 32768;
+    rand_state = rand_state * 1103515245 + 12345;
+    return (unsigned int)(rand_state / 65536) % 32768;
 }
 void srand(unsigned int seed) {
-    next = seed;
+    rand_state = seed;
+}
+void seed_rand_with_time() {
+    int time;
+    asm ("rdtsc\n\t"
+         "movl %%eax, %0\n\t"
+         :"=r"(time)                     /* output */
+         :/*no input registers*/         /* input */
+         :"%eax"         /* clobbered register */
+         );
+    srand(time);
 }
 
 int random_below(int upper_bound) {
@@ -73,7 +83,7 @@ int add_random_box(int board[][BOARD_SIZE]) {
 
 void initialize(int board[][BOARD_SIZE]) {
     int count = 0;
-    while (count < 16) {
+    while (count < 2) {
         count += add_random_box(board);
     }
 }
