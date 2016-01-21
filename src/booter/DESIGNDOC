@@ -46,7 +46,7 @@ which parts.
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
-   Alex Ryan - Bootloader, basic drawing functions
+   Alex Ryan - Bootloader, basic drawing functions, keyboard interaction
    Jaden Geller - #TODO
 
 Note that this design document is a bit long.  Most of the questions can be
@@ -81,6 +81,10 @@ not required by the question.
 >> of operations or updates that is performed within your program?
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
+	#TODO (timer interrupts)
+	When a keyboard interrupt occurs, our program checks if the scancode is
+	represents one of the five keys our game uses. If it does, it stores it
+	in a circular queue of key events.
 
 >> A5: Would you say your program relies on polling or busy-waiting anywhere
 >> to accomplish its tasks?  If so, what tasks?
@@ -103,7 +107,7 @@ not required by the question.
 	I experimented with statically linking them into our executable but ended
 	up working around using them instead.
 	Access to the Intel RDRAND instruction would have been convenient, but we
-	used RDTSC to seed our random number generator instead.
+	used RDTSC to seed a random number generator instead.
 
 			     BOOT SECTOR
 			     ===========
@@ -191,18 +195,31 @@ not required by the question.
 
 >> E1: What state does your keyboard subsystem manage?  Describe the variables
 >> or data structures that it maintains, and how they are used.
+	The keyboard subsystem manages a variable called `modified` which is set when
+	a 0xE0 scancode is received (the first part of a multi-part scan code). It is
+	unset when the next scancode is received. It also manages a circular queue of
+	recognized key events.
 
 >> E2: How do your data structures handle keys with multi-byte scan-codes?
+	If 0xE0 is received, the `modified` variable is set. Then the next time a
+	scancode is received, it is run through a different switch statement of
+	all the scancodes that come after a 0xE0, and the `modified` variable is unset.
 
 ---- ALGORITHMS ----
 
 >> E3: What abstraction does your keyboard code present to your main program?
 >> Briefly describe the higher-level operations you decided to implement.
+	Our keyboard code is very well encapsulated, only exposing a isemptyqueue()
+	and a dequeue() function to the main program (enqueuing should only happen
+	within the keyboard interrupt handler).
 
 >> E4: Does your keyboard subsystem expose scan-codes directly to your main
 >> program, or does it preprocess them and expose other information to your
 >> main program?  If scan-code data is preprocessed, briefly describe what
 >> information is actually exposed, and how it is derived from scan-codes.
+	Scancode data is preprocessed. When a scancode is received, we check if it's
+	associated with one of the five keys we're interested in and if so, we add
+	it (as an enum value, not the original scancode) to the circular queue.
 
 ---- SYNCHRONIZATION ----
 
@@ -210,6 +227,12 @@ not required by the question.
 >> potential for race conditions in updating the keyboard subsystem's
 >> internal state?  If so, what steps did you take to ensure that such
 >> situations cannot occur?
+	Yes - an interrupt could occur during the dequeue() function. To ensure this
+	doesn't happen, we disable the interrupt flag before running that code (and
+	restore it when we're done, if it was enabled before.) The enqueue() function
+	is only used within an interrupt handler, so it shouldn't be interrupted;
+	nonetheless, we saved and restored the interrupt flag there too in case any
+	future programmer decides to use it elsewhere.
 
 >> E6: Given how your program handles keyboard events, is there any
 >> potential for keyboard interrupts to generate race conditions in updating
