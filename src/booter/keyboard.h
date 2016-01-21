@@ -8,7 +8,7 @@
 #define DOWN_KEY_SCANCODE 0x50
 #define ENTER_KEY_SCANCODE 0x1c
 
-typedef enum { left, right, up, down, enter } key;
+typedef enum { left_key, right_key, up_key, down_key, enter_key } key;
 
 int isemptyqueue();
 key dequeue();

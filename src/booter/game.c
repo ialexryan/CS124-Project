@@ -4,6 +4,7 @@
 #include "interrupts.h"
 #include "keyboard.h"
 #include "timer.h"
+#include "utility.h"
 
 /* This is the entry-point for the game! */
 void c_start(void) {
@@ -21,14 +22,18 @@ void c_start(void) {
     enable_interrupts();
 
     int board[BOARD_SIZE][BOARD_SIZE] = { };
+    int offset[BOARD_SIZE][BOARD_SIZE] = { };
     initialize(board);
     init_video();
-    draw_board(VIDEO_BUFFER, board);
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
     while (1) {
         if (!isemptyqueue()) {
-            key k = dequeue();
+            shift_direction direction = key_direction(dequeue());
+            shift(board, direction, offset);
+            
+            init_video();
+            draw_board(VIDEO_BUFFER, board);
         }
     }
 }

@@ -51,7 +51,7 @@ void initialize(int board[][BOARD_SIZE]) {
 }
 
 # define shift_dir(direction) \
-int shift_ ## direction(int board[][BOARD_SIZE], /* out parameter */ int amount[][BOARD_SIZE]) { \
+int shift_ ## direction(int board[][BOARD_SIZE], /* out parameter */ int offset[][BOARD_SIZE]) { \
     int board_mutated = 0; \
     for (int line = 0; line < BOARD_SIZE; line++) { \
         int next_unoccupied_index = loop_start; \
@@ -64,7 +64,7 @@ int shift_ ## direction(int board[][BOARD_SIZE], /* out parameter */ int amount[
                     int merge_index = next_unoccupied_index - loop_dir; \
                     \
                     /* Record distance travelled, flipping sign if we're traversing backwards  */ \
-                    access(amount,line,index) = (index - merge_index) * loop_dir; \
+                    access(offset,line,index) = (index - merge_index) * loop_dir; \
                     \
                     /* Merge into the previous tile */ \
                     access(board, line, merge_index) *= 2; \
@@ -76,7 +76,7 @@ int shift_ ## direction(int board[][BOARD_SIZE], /* out parameter */ int amount[
                 } \
                 else  { /* Just shift into an empty space */ \
                     /* Record distance travelled, flipping sign if we're traversing backwards */ \
-                    access(amount, line, index) = (index - next_unoccupied_index) * loop_dir; \
+                    access(offset, line, index) = (index - next_unoccupied_index) * loop_dir; \
                     \
                     /* Shift as far as possible */ \
                     if (next_unoccupied_index != index) { \
@@ -133,13 +133,6 @@ shift_dir(down)
 # undef loop_dir
 
 typedef enum {
-    up_direction,
-    down_direction,
-    left_direction,
-    right_direction
-} shift_direction;
-
-typedef enum {
     vertical_axis,
     horizontal_axis
 } shift_axis;
@@ -173,12 +166,12 @@ int axis_dimension(shift_axis axis) {
     }
 }
 
-int shift(int board[][BOARD_SIZE], shift_direction dir, /* out parameter */ int amount[][BOARD_SIZE]) {
+int shift(int board[][BOARD_SIZE], shift_direction dir, /* out parameter */ int offset[][BOARD_SIZE]) {
     switch (dir) {
-        case up_direction:    return shift_up(board, amount);
-        case down_direction:  return shift_down(board, amount);
-        case left_direction:  return shift_left(board, amount);
-        case right_direction: return shift_right(board, amount);
+        case up_direction:    return shift_up(board, offset);
+        case down_direction:  return shift_down(board, offset);
+        case left_direction:  return shift_left(board, offset);
+        case right_direction: return shift_right(board, offset);
     }
 }
 

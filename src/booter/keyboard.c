@@ -98,16 +98,16 @@ void keypress_handler(void) {
     if (modified) {
         switch(scan_code) {
             case LEFT_KEY_SCANCODE:
-                enqueue(left);
+                enqueue(left_key);
                 break;
             case RIGHT_KEY_SCANCODE:
-                enqueue(right);
+                enqueue(right_key);
                 break;
             case UP_KEY_SCANCODE:
-                enqueue(up);
+                enqueue(up_key);
                 break;
             case DOWN_KEY_SCANCODE:
-                enqueue(down);
+                enqueue(down_key);
                 break;
         }
         modified = 0;
@@ -117,7 +117,7 @@ void keypress_handler(void) {
                 modified = 1;
                 break;
             case ENTER_KEY_SCANCODE:
-                enqueue(enter);
+                enqueue(enter_key);
                 break;
         }
     }
