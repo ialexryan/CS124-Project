@@ -145,40 +145,6 @@ shift_dir(down)
 # undef loop_check
 # undef loop_dir
 
-typedef enum {
-    vertical_axis,
-    horizontal_axis
-} shift_axis;
-
-shift_axis get_axis(shift_direction direction) {
-    switch (direction) {
-        case up_direction:
-        case down_direction:
-            return vertical_axis;
-        case left_direction:
-        case right_direction:
-            return horizontal_axis;
-    }
-}
-
-shift_axis opposite_axis(shift_axis axis) {
-    switch (axis) {
-        case vertical_axis:
-            return horizontal_axis;
-        case horizontal_axis:
-            return vertical_axis;
-    }
-}
-
-int axis_dimension(shift_axis axis) {
-    switch (axis) {
-        case vertical_axis:
-            return BOX_HEIGHT;
-        case horizontal_axis:
-            return BOX_WIDTH;
-    }
-}
-
 int shift(int board[][BOARD_SIZE], shift_direction dir, /* out parameter */ int offset[][BOARD_SIZE]) {
     switch (dir) {
         case up_direction:    return shift_up(board, offset);

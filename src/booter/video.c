@@ -25,26 +25,64 @@
  *        position, or any other details you might want to keep track of!
  */
 
-//typedef enum {
-//    update_character = 0x1,
-//    update_foreground = 0x2,
-//    update_background = 0x4,
-//    update_color = update_foreground | update_background,
-//    update_all = update_character | update_color
-//} update_options;
+typedef enum {
+    update_character = 0x1,
+    update_foreground = 0x2,
+    update_background = 0x4,
+    update_color = update_foreground | update_background,
+    update_all = update_character | update_color
+} update_options;
 
-//bool has_option(update_options mask, update_options option) {
-//    return (mask & option) == option;
-//}
+int has_option(update_options mask, update_options option) {
+    return (mask & option) == option;
+}
 
-//void clear_screen(pixel value, update_options options) {
-//    volatile pixel *end = VIDEO_BUFFER + VIDEO_SIZE;
-//    for (volatile pixel *p = VIDEO_BUFFER; p < end; p++) {
-//        if (has_option(options, update_character))  pixel->character  = value.character;
-//        if (has_option(options, update_foreground)) pixel->foreground = value.foreground;
-//        if (has_option(options, update_background)) pixel->background = value.background;
-//   }
-//}
+void apply_advanced(volatile pixel *p, pixel v, update_options options) {
+    if (has_option(options, update_character))  p->character  = v.character;
+    if (has_option(options, update_foreground)) p->color.foreground = v.color.foreground;
+    if (has_option(options, update_background)) p->color.background = v.color.background;
+}
+
+void clear_screen_advanced(pixel value, update_options options) {
+    volatile pixel *end = VIDEO_BUFFER + VIDEO_SIZE;
+    for (volatile pixel *p = VIDEO_BUFFER; p < end; p++) {
+        apply_advanced(p, value, options);
+   }
+}
+
+typedef enum {
+    vertical_axis,
+    horizontal_axis
+} shift_axis;
+
+shift_axis get_axis(shift_direction direction) {
+    switch (direction) {
+        case up_direction:
+        case down_direction:
+            return vertical_axis;
+        case left_direction:
+        case right_direction:
+            return horizontal_axis;
+    }
+}
+
+shift_axis opposite_axis(shift_axis axis) {
+    switch (axis) {
+        case vertical_axis:
+            return horizontal_axis;
+        case horizontal_axis:
+            return vertical_axis;
+    }
+}
+
+int axis_dimension(shift_axis axis) {
+    switch (axis) {
+        case vertical_axis:
+            return BOX_HEIGHT;
+        case horizontal_axis:
+            return BOX_EFFECTIVE_WIDTH;
+    }
+}
 
 typedef struct {
     point top_left;
@@ -96,18 +134,6 @@ void clear_screen(color_pair color) {
    }
 }
 
-void color_rectangle(rectangle r, color_pair c) {
-    volatile pixel *here = VIDEO_BUFFER;
-    here = apply_offset(here, r.top_left);
-    for (int y = 0; y < rectangle_height(r); y++) {
-        for (int x = 0; x < rectangle_width(r); x++) {
-            here->color = c;
-            here++;
-        }
-        here += VIDEO_WIDTH - rectangle_width(r);
-    }
-}
-
 volatile pixel *draw_string(volatile pixel *p, char *string) {
     while (*string != '\0') {
         p->character = *string;
@@ -152,13 +178,27 @@ void draw_bottom_decorated_horizontal_line(volatile pixel *screen, int length) {
     screen->character = 188;
 }
 
-void draw_inner_rectangle(volatile pixel *screen, int length) {
+void draw_inner_rectangle(volatile pixel *screen, int length, int fill) {
     if    (length-- > 0) (screen++)->character = 186;
-    while (length-- > 1) (screen++)->character = ' ';
+    while (length-- > 1) {
+        if (fill) (screen++)->character = ' ';
+        else screen++;
+    }
     (screen++)->character = 186;
 }
 
-void draw_rectangle_outline(volatile pixel *screen, rectangle r) {
+void color_rectangle(volatile pixel *screen, rectangle r, pixel p, update_options options) {
+    screen = apply_offset(screen, r.top_left);
+    for (int y = 0; y < rectangle_height(r); y++) {
+        for (int x = 0; x < rectangle_width(r); x++) {
+            apply_advanced(screen, p, options);
+            screen++;
+        }
+        screen += VIDEO_WIDTH - rectangle_width(r);
+    }
+}
+
+void draw_rectangle_outline(volatile pixel *screen, rectangle r, int fill) {
     int width  = rectangle_width(r);
     int height = rectangle_height(r);
     if (width <= 0 || height <= 0) return;
@@ -170,39 +210,106 @@ void draw_rectangle_outline(volatile pixel *screen, rectangle r) {
         screen = apply_offset_vertical(screen, 1);
     }
     while (height-- > 1) {
-        draw_inner_rectangle(screen, width);
+        draw_inner_rectangle(screen, width, fill);
         screen = apply_offset_vertical(screen, 1);
     }
     draw_bottom_decorated_horizontal_line(screen, width);
 }
 
+char color_for_number(int number) {
+    switch (number) {
+        case 2:
+            return CYAN;
+        case 4:
+            return MAGENTA;
+        case 8:
+            return RED;
+        case 16:
+            return BLUE;
+        case 32:
+            return GREEN;
+        case 64:
+            return LIGHT_RED;
+        case 128:
+            return LIGHT_BLUE;
+        case 256:
+            return LIGHT_MAGENTA;
+        case 512:
+            return LIGHT_GRAY;
+        case 1024:
+            return BROWN;
+        default:
+            return BLACK;
+    }
+}
+
 void draw_boxed_number(volatile pixel *screen, boxed_number box) {
     if (box.number == 0) return;
-    draw_rectangle_outline(screen, (rectangle){ .top_left = box.location, .bottom_right = offset(box.location, (point){ .x = BOX_WIDTH, .y = BOX_HEIGHT }) });
+    rectangle bounds = { .top_left = box.location, .bottom_right = offset(box.location, (point){ .x = BOX_WIDTH, .y = BOX_HEIGHT }) };
+    draw_rectangle_outline(screen, bounds, 1);
     draw_number_rtl(apply_offset(screen, offset(box.location, (point){ .x = BOX_WIDTH - 2, .y = 1 })), box.number);
+    color_rectangle(screen, bounds, (pixel){
+        .character = '\0',
+        .color = (color_pair){ .foreground = color_for_number(box.number), .background = -1 }
+    }, update_foreground);
 }
 
 void draw_failure_message() {
     draw_string(VIDEO_BUFFER + 11 + VIDEO_WIDTH * 21, "Game over! No more moves. Press ENTER to start a new game.");
-    color_rectangle((rectangle){.top_left = {.x = 10, .y = 21}, .bottom_right = {.x = 70, .y = 22}}, (color_pair){.foreground = WHITE, .background = RED});
+    color_rectangle(VIDEO_BUFFER, (rectangle){.top_left = {.x = 10, .y = 21}, .bottom_right = {.x = 70, .y = 22}}, (pixel){
+        .character = '\0',
+        .color = (color_pair){.foreground = WHITE, .background = RED}
+    }, update_color);
+}
+
+int keyframe_offset(point p, animation_descriptor descriptor, int frame) {
+    return frame * descriptor.offsets[p.y][p.x] / axis_dimension(get_axis(descriptor.direction));
+}
+
+int frame_count(shift_direction direction) {
+    int dimension = axis_dimension(get_axis(direction));
+    return dimension * dimension;
+}
+
+point box_point_to_grid_point(point p) {
+    return (point){ .x = p.x * BOX_EFFECTIVE_WIDTH, .y = p.y * BOX_HEIGHT };
+}
+
+void draw_board_keyframe(volatile pixel *screen, animation_descriptor descriptor, int frame) {
+    for (int y = 0; y < BOARD_SIZE; y++) {
+        for (int x = 0; x < BOARD_SIZE; x++) {
+            int current_offset = keyframe_offset((point){ .x = x, .y = y }, descriptor, frame);
+            draw_boxed_number(screen, (boxed_number){
+                .location = dir_offset(box_point_to_grid_point((point){ .x = x, .y = y }), current_offset, descriptor.direction),
+                .number = descriptor.board[y][x]
+            });
+        }
+    }
 }
 
 void draw_board(int board[][BOARD_SIZE]) {
     int centerx = (VIDEO_WIDTH - BOARD_WIDTH) / 2;
     int centery = (VIDEO_HEIGHT - BOARD_HEIGHT) / 2;
+
+    rectangle bounds = { .top_left = {.x = centerx - 2, .y = centery - 1}, .bottom_right = {.x = centerx + 2 + BOARD_WIDTH, .y = centery + 1 + BOARD_HEIGHT}};
+    color_rectangle(VIDEO_BUFFER, bounds, (pixel){
+        .character = '\0',
+        .color = (color_pair){.foreground = DARK_GRAY, .background = WHITE}
+    }, update_color);
+    draw_rectangle_outline(VIDEO_BUFFER, bounds, 0);
+
     volatile pixel *screen = VIDEO_BUFFER + (VIDEO_WIDTH * centery + centerx);
     for (int y = 0; y < BOARD_SIZE; y++) {
         for (int x = 0; x < BOARD_SIZE; x++) {
             draw_boxed_number(screen, (boxed_number){ .location = (point){ .x = x * (BOX_WIDTH + BOX_SPACING), .y = y * BOX_HEIGHT }, .number = board[y][x] });
         }
     }
-    color_rectangle((rectangle){ .top_left = {.x = centerx - 2, .y = centery - 1}, .bottom_right = {.x = centerx + 2 + BOARD_WIDTH, .y = centery + 1 + BOARD_HEIGHT}}, (color_pair){.foreground = RED, .background = CYAN});
 }
 
 void init_video(void) {
-    clear_screen((color_pair){ .foreground = RED, .background = YELLOW });
+    clear_screen((color_pair){ .foreground = BLACK, .background = LIGHT_GRAY });
     draw_string(VIDEO_BUFFER, "Play using the arrow keys.");
-    draw_string(VIDEO_BUFFER + VIDEO_WIDTH, "Enter to start a new game.");
+    draw_string(VIDEO_BUFFER + VIDEO_WIDTH, "Press enter to restart.");
     draw_string(VIDEO_BUFFER + 64, "HIGH SCORE: ");
     draw_number_rtl(VIDEO_BUFFER + 79, high_score);
 }
