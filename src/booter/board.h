@@ -3,7 +3,10 @@
 
 #define BOARD_SIZE 4
 
+#define BOX_HEIGHT 3
+#define BOX_WIDTH 6
+#define BOX_SPACING 1
+
 void initialize(int board[][BOARD_SIZE]);
-void test_jaden();
 
 #endif /* BOARD_H */

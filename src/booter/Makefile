@@ -10,7 +10,7 @@ CFLAGS=-g -std=gnu11
 
 BOOT_BIN = boot.bin
 
-OBJS = game.o video.o board.o interrupts.o handlers.o timer.o keyboard.o
+OBJS = game.o video.o board.o interrupts.o handlers.o timer.o keyboard.o utility.o
 PROGRAM_OBJ = program.o
 PROGRAM_BIN = program.bin
 
