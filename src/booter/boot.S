@@ -57,6 +57,12 @@ boot_start:
 	mov $0x42, %ah
 	int $0x13  # read sectors from disk
 
+	# Free the memory used for the DAP
+	popl %ebx
+	popl %ebx
+	popl %ebx
+	popl %ebx
+
 	jc boot_fail     # If disk read errors, carry flag is set
 
 	mov	$STR_LOADED, %si
