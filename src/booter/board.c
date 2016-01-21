@@ -44,10 +44,9 @@ int add_random_box(int board[][BOARD_SIZE]) {
 }
 
 void initialize(int board[][BOARD_SIZE]) {
-    for (int y = 0; y < BOARD_SIZE; y++) {
-        for (int x = 0; x < BOARD_SIZE; x++) {
-            board[x][y] = 0;
-        }
+    for (int y = 0; y < BOARD_SIZE; y++)
+    for (int x = 0; x < BOARD_SIZE; x++) {
+            board[y][x] = 0;
     }
     int count = 0;
     while (count < 2) {

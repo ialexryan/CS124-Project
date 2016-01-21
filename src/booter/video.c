@@ -182,6 +182,11 @@ void draw_boxed_number(volatile pixel *screen, boxed_number box) {
     draw_number_rtl(apply_offset(screen, offset(box.location, (point){ .x = BOX_WIDTH - 2, .y = 1 })), box.number);
 }
 
+void draw_failure_message() {
+    draw_string(VIDEO_BUFFER + 11 + VIDEO_WIDTH * 21, "Game over! No more moves. Press ENTER to start a new game.");
+    color_rectangle((rectangle){.top_left = {.x = 10, .y = 21}, .bottom_right = {.x = 70, .y = 22}}, (color_pair){.foreground = WHITE, .background = RED});
+}
+
 void draw_board(int board[][BOARD_SIZE]) {
     int centerx = (VIDEO_WIDTH - BOARD_WIDTH) / 2;
     int centery = (VIDEO_HEIGHT - BOARD_HEIGHT) / 2;
@@ -196,4 +201,6 @@ void draw_board(int board[][BOARD_SIZE]) {
 
 void init_video(void) {
     clear_screen((color_pair){ .foreground = RED, .background = YELLOW });
+    draw_string(VIDEO_BUFFER, "Play using the arrow keys.");
+    draw_string(VIDEO_BUFFER + VIDEO_WIDTH, "Enter to start a new game.");
 }

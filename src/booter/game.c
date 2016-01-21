@@ -25,6 +25,7 @@ void c_start(void) {
     animation_descriptor descriptor = { };
     initialize(board);
     init_video();
+    draw_board(board);
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
     while (1) {
@@ -46,6 +47,9 @@ void c_start(void) {
             }
             init_video();
             draw_board(board);
+            if (!move_available(board)) {
+                draw_failure_message();
+            }
         }
     }
 }

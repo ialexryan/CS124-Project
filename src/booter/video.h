@@ -45,6 +45,7 @@ typedef struct {
 void init_video(void);
 void clear_screen(color_pair color);
 void draw_board(int board[][BOARD_SIZE]);
+void draw_failure_message();
 
 #define FRAME_COUNT (BOX_WIDTH * BOX_HEIGHT * 3)
 

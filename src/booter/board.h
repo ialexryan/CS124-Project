@@ -16,5 +16,6 @@ void initialize(int board[][BOARD_SIZE]);
 int shift(int board[][BOARD_SIZE], shift_direction dir, /* out parameter */ int amount[][BOARD_SIZE]);
 void copy_board(int from[][BOARD_SIZE], int to[][BOARD_SIZE]);
 int add_random_box(int board[][BOARD_SIZE]);
+int move_available(int board[][BOARD_SIZE]);
 
 #endif /* BOARD_H */
