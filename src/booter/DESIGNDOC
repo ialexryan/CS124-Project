@@ -41,13 +41,13 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
    Alex Ryan - 14 hours
-   Jaden Geller - #TODO
+   Jaden Geller - 22 hours
 
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
    Alex Ryan - Bootloader, basic drawing functions, keyboard interaction
-   Jaden Geller - #TODO
+   Jaden Geller - Interrupts, game logic, game animation, game graphics
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -60,11 +60,15 @@ not required by the question.
 
 >> A1: In 25-30 words or less, what does your PC booter do?
 	The PC bootloader uses BIOS functions to load a C program off of a disk
-	into memory, switches into protected mode, and executes the C program.
+	into memory, switches into protected mode, and executes the C program. The C
+	program is a recreation of the popular online puzzle game, 2048.
 
 >> A2: In 25-30 words or less, how does the user interact with the program?
 >> What are the controls?  What should the user try to do?
-
+	Use the arrow keys to shift pieces left, right, up, and down.
+	If pieces of the same number collide, they sum. Try to get the
+	largest number possible. You lose when the board fills up and
+	there are no moves left. Press enter to restart the game at any time.
 
 ---- DATA STRUCTURES ----
 
@@ -72,6 +76,11 @@ not required by the question.
 >> perform its operations.  Don't focus on state managed within interrupt
 >> handlers; we will look at that later.  Rather, focus on state that is
 >> part of the game implementation itself.
+
+The game doesn't involve any global state. All data structures used by
+the game are declared on the stack before the game loop. The game has a
+board (a 2D integer array) and an animation helper (keeps track of how much
+pieces moved and in what direction). 
 
 ---- SYNCHRONIZATION ----
 
