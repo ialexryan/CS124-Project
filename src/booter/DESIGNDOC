@@ -40,14 +40,15 @@ which parts.
 
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
-   Alex Ryan - 14 hours
-   Jaden Geller - 22 hours
-
+   Alex Ryan - 22 hours
+   Jaden Geller - 26 hours
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
-   Alex Ryan - Bootloader, basic drawing functions, keyboard interaction
-   Jaden Geller - Interrupts, game logic, game animation, game graphics
+   Alex Ryan - Bootloader, keyboard, basic drawing functions,
+               visual design of board + pieces, high score
+   Jaden Geller - Interrupts, game logic (shifting, merging, game over, etc),
+		game animation, game colors + color changing pieces
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -65,10 +66,14 @@ not required by the question.
 
 >> A2: In 25-30 words or less, how does the user interact with the program?
 >> What are the controls?  What should the user try to do?
-	Use the arrow keys to shift pieces left, right, up, and down.
-	If pieces of the same number collide, they sum. Try to get the
-	largest number possible. You lose when the board fills up and
-	there are no moves left. Press enter to restart the game at any time.
+	The user uses the arrow keys to move numbered blocks on a 4x4 board.
+	Blocks that have the same number collapse into a single block (with
+	double that number) when they are moved onto each other. With each move,
+	a new block appears on the board at a random position. When there are no
+	more moves available, the game ends. The objective is to get as high
+	of a score as possible - that is, to create a block with as high a number
+	as possible. The only other control is pressing the Enter key to start
+	a new game.
 
 ---- DATA STRUCTURES ----
 
@@ -90,22 +95,33 @@ pieces moved and in what direction).
 >> of operations or updates that is performed within your program?
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
-	#TODO (timer interrupts)
-	When a keyboard interrupt occurs, our program checks if the scancode is
+	When a timer interrupt occurs, we increment a counter variable.
+	When a keyboard interrupt occurs, our program checks if the scancode
 	represents one of the five keys our game uses. If it does, it stores it
 	in a circular queue of key events.
 
 >> A5: Would you say your program relies on polling or busy-waiting anywhere
 >> to accomplish its tasks?  If so, what tasks?
+	Our sleep() function is implemented as a busy-wait, and our main game
+	loop is a busy-wait when there are no key events to dequeue.
+
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose the project you did?
 
+The algorithm for shifting the board seemed like an interesting challenge to
+program. Further, the game was easily representable on the display, the game
+was easily playable via the keyboard, and the animations required use of the timer.
+Also it's a really fun game :P
+
 >> A7: Did your choice of project affect any of the specific implementation
 >> details of the various subsystems that you needed to use?  (For example,
 >> if you implemented a scrolling game, did you implement specialized high-
 >> performance video code to scroll the screen?)
+
+No, though many graphic functions were written that abstracted the process
+of writing this games components to the screen.
 
 >> A8: Did you run into any technical or resource limitations in the
 >> implementation of your program?  (For example, bootloader didn't fit,
@@ -162,17 +178,29 @@ pieces moved and in what direction).
 >> C2: Does your video code maintain any variables or data structures to
 >> facilitate video output?  Briefly describe these values and their
 >> purposes here.
+	The game loop has a animation tracking struct that is used to compute
+	the position of pieces for a given frame. This struct is populated
+	a time of shift, and it is used in a functional way to determine
+	the piece positions as a function of time.
 
 ---- ALGORITHMS ----
 
 >> C3: What abstraction does your video code present to your main program?
 >> Briefly describe the higher-level operations you decided to implement.
+	We implemented operations that, given a board, will draw it to the board.
+	These were implemented in terms of lower level primitives such as
+	`draw_string` that we also wrote. We later wrote an animated draw board
+	function that, given a tilmestep, will draw the correct piece position
+	for the slide.
 
 ---- RATIONALE ----
 
 >> C4: Did you take any specific steps to improve the appearance of your
 >> program's display output?  For example, using Extended ASCII Codes, or
 >> choosing specific colors to represent different things?
+	We used a gray background with vibrant piece colors to draw attention to
+	the board and to highlight the possible moves. The pieces and the board
+	utilized extended ASCII codes to display more pretty borders.
 
 			  TIMER SUBSYSTEM
 			  ===============
@@ -253,6 +281,10 @@ pieces moved and in what direction).
 >> E7: Why did you choose the design and data representation that your
 >> keyboard subsystem uses?  How is it suited to your program's overall
 >> operation?
+	Interpreting keyboard events as they happen (rather than dumping the
+	raw scancodes into a queue to be interpreted elsewhere) certainly made
+	our program much cleaner. Since we are only working with a few keys,
+	having them represented by an enum was very convenient.
 
 			  SURVEY QUESTIONS
 			  ================
@@ -265,12 +297,24 @@ penalized.  We can't fix things until we know about them.  :-)
 
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
+	It wasn't too hard but it certainly took far too much time. Though it was
+	interesting to write a video game, it was very time consuming compared to
+	how much OS-specific knowledge was learned. It was fun though.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+	The bootloader part of the assignment was very interesting and totally
+	new material to me, insight into an important part of computers that
+	I otherwise probably would never have encountered.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+	The entire assignment past the bootloader felt essentially useless to me,
+	and it consumed the majority of the time. Getting keyboard and timer
+	interrupts working was educational, but could have been just as easily
+	accomplished by printing keyboard input to the screen and flashing the
+	color. The majority of the time on this assignment was spent programming
+	a simple game in a very restricted subset of C, which isn't useful to me at all.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
