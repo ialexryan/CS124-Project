@@ -40,13 +40,14 @@ which parts.
 
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
-   Alex Ryan - 14 hours
+   Alex Ryan - 22 hours
    Jaden Geller - #TODO
 
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
-   Alex Ryan - Bootloader, basic drawing functions, keyboard interaction
+   Alex Ryan - Bootloader, keyboard, basic drawing functions,
+               visual design of board + pieces, high score
    Jaden Geller - #TODO
 
 Note that this design document is a bit long.  Most of the questions can be
@@ -64,6 +65,14 @@ not required by the question.
 
 >> A2: In 25-30 words or less, how does the user interact with the program?
 >> What are the controls?  What should the user try to do?
+	The user uses the arrow keys to move numbered blocks on a 4x4 board.
+	Blocks that have the same number collapse into a single block (with
+	double that number) when they are moved onto each other. With each move,
+	a new block appears on the board at a random position. When there are no
+	more moves available, the game ends. The objective is to get as high
+	of a score as possible - that is, to create a block with as high a number
+	as possible. The only other control is pressing the Enter key to start
+	a new game.
 
 
 ---- DATA STRUCTURES ----
@@ -81,13 +90,16 @@ not required by the question.
 >> of operations or updates that is performed within your program?
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
-	#TODO (timer interrupts)
-	When a keyboard interrupt occurs, our program checks if the scancode is
+	When a timer interrupt occurs, we increment a counter variable.
+	When a keyboard interrupt occurs, our program checks if the scancode
 	represents one of the five keys our game uses. If it does, it stores it
 	in a circular queue of key events.
 
 >> A5: Would you say your program relies on polling or busy-waiting anywhere
 >> to accomplish its tasks?  If so, what tasks?
+	Our sleep() function is implemented as a busy-wait, and our main game
+	loop is a busy-wait when there are no key events to dequeue.
+
 
 ---- RATIONALE ----
 
@@ -244,6 +256,10 @@ not required by the question.
 >> E7: Why did you choose the design and data representation that your
 >> keyboard subsystem uses?  How is it suited to your program's overall
 >> operation?
+	Interpreting keyboard events as they happen (rather than dumping the
+	raw scancodes into a queue to be interpreted elsewhere) certainly made
+	our program much cleaner. Since we are only working with a few keys,
+	having them represented by an enum was very convenient.
 
 			  SURVEY QUESTIONS
 			  ================
@@ -256,12 +272,22 @@ penalized.  We can't fix things until we know about them.  :-)
 
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
+	It wasn't too hard but it certainly took far too much time.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+	The bootloader part of the assignment was very interesting and totally
+	new material to me, insight into an important part of computers that
+	I otherwise probably would never have encountered.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+	The entire assignment past the bootloader felt essentially useless to me,
+	and it consumed the majority of the time. Getting keyboard and timer
+	interrupts working was educational, but could have been just as easily
+	accomplished by printing keyboard input to the screen and flashing the
+	color. The majority of the time on this assignment was spent programming
+	a simple game in a very restricted subset of C, which isn't useful to me at all.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
