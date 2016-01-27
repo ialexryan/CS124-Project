@@ -11,7 +11,7 @@
 Jaden Geller <jgeller@caltech.edu>
 Alex Ryan <alexryan@caltech.edu>
 
->> Specify how many late tokens you are using on this assignment:  0
+>> Specify how many late tokens you are using on this assignment:  1
 
 >> What is the Git repository and commit hash for your submission?
    (You only need to include the commit-hash in the file you submit
@@ -111,17 +111,16 @@ pieces moved and in what direction).
 >> A6: Why did you choose the project you did?
 
 The algorithm for shifting the board seemed like an interesting challenge to
-program. Further, the game was easily representable on the display, the game
+program. The game was easily representable on the display, the game
 was easily playable via the keyboard, and the animations required use of the timer.
-Also it's a really fun game :P
+Also it's a really fun game.
 
 >> A7: Did your choice of project affect any of the specific implementation
 >> details of the various subsystems that you needed to use?  (For example,
 >> if you implemented a scrolling game, did you implement specialized high-
 >> performance video code to scroll the screen?)
 
-No, though many graphic functions were written that abstracted the process
-of writing this games components to the screen.
+No.
 
 >> A8: Did you run into any technical or resource limitations in the
 >> implementation of your program?  (For example, bootloader didn't fit,
@@ -129,7 +128,7 @@ of writing this games components to the screen.
 >> achieve the desired performance level, etc.)  If so, what steps did you
 >> take to try to overcome those limitations?
 	Several common standard libraries would have been very helpful to have.
-	I experimented with statically linking them into our executable but ended
+	We experimented with statically linking them into our executable but ended
 	up working around using them instead.
 	Access to the Intel RDRAND instruction would have been convenient, but we
 	used RDTSC to seed a random number generator instead.
@@ -199,8 +198,8 @@ of writing this games components to the screen.
 >> program's display output?  For example, using Extended ASCII Codes, or
 >> choosing specific colors to represent different things?
 	We used a gray background with vibrant piece colors to draw attention to
-	the board and to highlight the possible moves. The pieces and the board
-	utilized extended ASCII codes to display more pretty borders.
+	the board and to make it easy to identify the possible moves. The pieces
+	and the board make use of extended ASCII codes to display borders.
 
 			  TIMER SUBSYSTEM
 			  ===============
@@ -209,6 +208,10 @@ of writing this games components to the screen.
 
 >> D1: What state does your timer subsystem manage?  Describe the variables
 >> or data structures that it maintains, and how they are used.
+	The timer subsystem manages a single state variable, a counter that is
+	incremented every time a timer interrupt is received. This allows us
+	to keep a rough estimate of the amount of time elapsed since the program
+	started, which we use to implement a sleep function.
 
 ---- ALGORITHMS ----
 
@@ -217,6 +220,11 @@ of writing this games components to the screen.
 
 >> D3: Did you change the timer frequency from 100Hz?  If so, what did you
 >> change it to, and why?
+	At first we changed the timer frequency to 1000Hz so that we could
+	easily allow the argument of our sleep() function to be milliseconds,
+	but actually found that the VM was too slow to keep up with the timer
+	interrupts, resulting in 1000 interrupts being processed about every
+	2.5 seconds. We then changed it back to 100Hz and had no problems.
 
 ---- SYNCHRONIZATION ----
 
@@ -224,6 +232,8 @@ of writing this games components to the screen.
 >> for timer interrupts to generate race conditions in updating your
 >> program's global state?  If so, what steps did you take to ensure that
 >> such situations cannot occur?
+	No - the only critical code is in the keyboard queue update functions,
+	and interrupts are disabled there.
 
 			KEYBOARD SUBSYSTEM
 			==================
@@ -269,12 +279,14 @@ of writing this games components to the screen.
 	restore it when we're done, if it was enabled before.) The enqueue() function
 	is only used within an interrupt handler, so it shouldn't be interrupted;
 	nonetheless, we saved and restored the interrupt flag there too in case any
-	future programmer decides to use it elsewhere.
+	future programmer decides to call it elsewhere.
 
 >> E6: Given how your program handles keyboard events, is there any
 >> potential for keyboard interrupts to generate race conditions in updating
 >> your program's global state?  If so, what steps did you take to ensure
 >> that such situations cannot occur?
+	No - the only critical code in the program is in the keyboard queue
+	update functions.
 
 ---- RATIONALE ----
 
