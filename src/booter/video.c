@@ -293,7 +293,7 @@ void draw_board(int board[][BOARD_SIZE]) {
     }
 }
 
-void init_video(void) {
+void init_video(int high_score) {
     clear_screen((color_pair){ .foreground = BLACK, .background = LIGHT_GRAY });
     draw_string(VIDEO_BUFFER, "Play using the arrow keys.");
     draw_string(VIDEO_BUFFER + VIDEO_WIDTH, "Press enter to restart.");

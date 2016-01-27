@@ -3,8 +3,6 @@
 
 #define NUM_STARTING_PIECES 2
 
-int high_score = 2;
-
 int is_available(int board[][BOARD_SIZE], point p) {
     return board[p.y][p.x] == 0;
 }
@@ -22,11 +20,13 @@ int num_available(int board[][BOARD_SIZE]) {
     return count;
 }
 
-void update_high_score(int board[][BOARD_SIZE]) {
+int current_score(int board[][BOARD_SIZE]) {
+    int sum = 0;
     for (int y = 0; y < BOARD_SIZE; y++)
     for (int x = 0; x < BOARD_SIZE; x++) {
-        if (board[y][x] > high_score) high_score = board[y][x];
+        sum += board[y][x];
     }
+    return sum;
 }
 
 point indexed_available_box(int board[][BOARD_SIZE], int i) {
@@ -104,7 +104,7 @@ int shift_ ## direction(int board[][BOARD_SIZE], /* out parameter */ int offset[
             } \
         } \
     } \
-return board_mutated; \
+    return board_mutated; \
 }
 
 // Forward iteration
@@ -114,12 +114,12 @@ return board_mutated; \
 
 // Left shift
 # define access(array, line, index) ((array)[line][index])
-shift_dir(left)
+shift_dir(left) // shift_left
 # undef access
 
 // Up shift
 # define access(array, line, index) ((array)[index][line])
-shift_dir(up)
+shift_dir(up) // shift_up
 # undef access
 
 # undef loop_start
@@ -133,12 +133,12 @@ shift_dir(up)
 
 // Right shift
 # define access(array, line, index) ((array)[line][index])
-shift_dir(right)
+shift_dir(right) // shift_right
 # undef access
 
 // Down shift
 # define access(array, line, index) ((array)[index][line])
-shift_dir(down)
+shift_dir(down) //shift_down
 # undef access
 
 # undef loop_start

@@ -48,7 +48,7 @@ typedef struct {
 
 #define VIDEO_BUFFER ((volatile pixel*) 0xB8000)
 
-void init_video(void);
+void init_video(int high_score);
 void clear_screen(color_pair color);
 void draw_board(int board[][BOARD_SIZE]);
 void draw_failure_message();

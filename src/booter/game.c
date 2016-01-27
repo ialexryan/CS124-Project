@@ -24,9 +24,10 @@ void c_start(void) {
     int board[BOARD_SIZE][BOARD_SIZE] = { };
     animation_descriptor descriptor = { };
     initialize(board);
-    init_video();
+    int high_score = current_score(board);
+    init_video(high_score);
     draw_board(board);
-
+    
     /* Loop forever, so that we don't fall back into the bootloader code. */
     while (1) {
         if (!isemptyqueue()) {
@@ -34,7 +35,7 @@ void c_start(void) {
             if (k == enter_key) {
                 for (int *b = *board; b < *board + BOARD_SIZE * BOARD_SIZE; b++) *b = 0;
                 initialize(board);
-                init_video();
+                init_video(high_score);
                 draw_board(board);
                 continue;
             } else {
@@ -47,8 +48,9 @@ void c_start(void) {
                 // Only add a box if the pieces actually move
                 if (shift(board, direction, descriptor.offsets)) {
                     add_random_box(board);
-                    update_high_score(board);
-                    init_video();
+                    int score = current_score(board);
+                    if (score > high_score) high_score = score;
+                    init_video(high_score);
                 }
             }
             
