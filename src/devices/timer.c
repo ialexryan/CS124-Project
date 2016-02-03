@@ -100,6 +100,7 @@ void timer_sleep(int64_t ticks) {
     thread_current()->sleeping = true;
     thread_current()->ticks_until_wake = ticks;
     thread_block();
+    ASSERT(thread_current()->sleeping == false);
     intr_set_level(old_level);
 }
 
