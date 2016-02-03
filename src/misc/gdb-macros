@@ -22,7 +22,7 @@ end
 # dump a Pintos list
 define dumplist
     set $list = $arg0
-    set $e = $list->head.next
+    set $e = $list.head.next
     set $i = 0
     while $e != &(($arg0).tail)
         list_entry $e $arg1 $arg2
@@ -67,7 +67,7 @@ end
 # print backtraces associated with all threads in a list
 define btthreadlist
     set $list = $arg0
-    set $e = $list->head.next
+    set $e = $list.head.next
     while $e != &(($arg0).tail)
         list_entry $e thread $arg1
         printf "pintos-debug: dumping backtrace of thread '%s' @%p\n", \
