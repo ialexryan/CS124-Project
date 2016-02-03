@@ -96,6 +96,8 @@ struct thread {
     char name[16];                      /*!< Name (for debugging purposes). */
     uint8_t *stack;                     /*!< Saved stack pointer. */
     int priority;                       /*!< Priority. */
+    bool sleeping;                       /*!< True if this thread is sleeping, false otherwise. */
+    int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     /**@}*/
 
@@ -155,4 +157,3 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 #endif /* threads/thread.h */
-
