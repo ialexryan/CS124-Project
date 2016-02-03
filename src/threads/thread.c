@@ -217,7 +217,7 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_push_back(&ready_list, &t->elem);
+    //list_push_back(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -277,8 +277,8 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();
-    if (cur != idle_thread)
-        list_push_back(&ready_list, &cur->elem);
+    //if (cur != idle_thread)
+    //    list_push_back(&ready_list, &cur->elem);
     cur->status = THREAD_READY;
     schedule();
     intr_set_level(old_level);
@@ -306,6 +306,13 @@ void thread_set_priority(int new_priority) {
 /*! Returns the current thread's priority. */
 int thread_get_priority(void) {
     return thread_current()->priority;
+}
+
+// We use effective priority here so that donated priority gets passed on
+bool priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+    struct thread* thread_a = list_entry(a, struct thread, elem);
+    struct thread* thread_b = list_entry(b, struct thread, elem);
+    return thread_a->priority > thread_b->priority;
 }
 
 /*! Sets the current thread's nice value to NICE. */
@@ -403,6 +410,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     t->ticks_until_wake = 0;
+    t->blocked_by_lock = NULL;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
@@ -426,10 +434,26 @@ static void * alloc_frame(struct thread *t, size_t size) {
     thread can continue running, then it will be in the run queue.)  If the
     run queue is empty, return idle_thread. */
 static struct thread * next_thread_to_run(void) {
-    if (list_empty(&ready_list))
-      return idle_thread;
-    else
-      return list_entry(list_pop_front(&ready_list), struct thread, elem);
+    list_sort(&all_list, &priority_less_func, NULL);  //TODO: keep it in order instead
+
+    struct thread* next_thread = list_entry(list_front(&all_list), struct thread, allelem);
+    ASSERT(is_thread(next_thread));
+
+    while (!(next_thread->status == THREAD_READY || next_thread->status == THREAD_RUNNING || next_thread->blocked_by_lock)) {
+        next_thread = list_entry(list_next(&next_thread->allelem), struct thread, allelem);
+        if (next_thread == list_entry(list_tail(&all_list), struct thread, allelem)) {
+            return idle_thread;
+        }
+        ASSERT(is_thread(next_thread));
+    }
+
+    while (next_thread->blocked_by_lock) {
+        next_thread = next_thread->blocked_by_lock->holder;
+        // TODO deal with recursion limit
+    }
+    ASSERT(is_thread(next_thread));
+
+    return next_thread;
 }
 
 /*! Completes a thread switch by activating the new thread's page tables, and,
