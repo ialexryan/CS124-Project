@@ -403,6 +403,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     t->ticks_until_wake = 0;
+    t->sleeping = false;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
