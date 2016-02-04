@@ -97,6 +97,7 @@ struct thread {
     uint8_t *stack;                     /*!< Saved stack pointer. */
     int priority;                       /*!< Priority. */
     int nice;
+    int recent_cpu;
     bool sleeping;                      /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
     struct lock* blocked_by_lock;       /*!< Pointer to the lock on which this thread is waiting, if any. */
@@ -157,5 +158,10 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
+
+void thread_recompute_priority(struct thread *t);
+void thread_update_load_avg(void);
+void thread_update_recent_cpu(struct thread *t);
+void thread_current_increment_recent_cpu(void);
 
 #endif /* threads/thread.h */

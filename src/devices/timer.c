@@ -78,7 +78,15 @@ int64_t timer_elapsed(int64_t then) {
     return timer_ticks() - then;
 }
 
-void decrement_threads_wake_counters(struct thread *t, void *aux) {
+static void update_threads_recent_cpu(struct thread *t, void *aux UNUSED) {
+    thread_update_recent_cpu(t);
+}
+
+static void recompute_threads_priority(struct thread *t, void *aux UNUSED) {
+    thread_recompute_priority(t);
+}
+
+static void decrement_threads_wake_counters(struct thread *t, void *aux UNUSED) {
     if (t->sleeping == true) {
         ASSERT(t->status == THREAD_BLOCKED);
         if (t->ticks_until_wake > 0)
@@ -160,7 +168,22 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
     /* Loop over all threads, decrementing the ticks_until_wake and
     unblocking when appropriate */
     thread_foreach(decrement_threads_wake_counters, NULL);
+    
+    /* Once per second... */
+    if (ticks % TIMER_FREQ == 0) {
+        /* Update system load average */
+        thread_update_load_avg();
 
+        /* Loop over all threads and update their recent cpu usage */
+        thread_foreach(update_threads_recent_cpu, NULL);
+        thread_current_increment_recent_cpu();
+    }
+    
+    /* Every fourth tick... */
+    if (ticks % 4 == 0) {
+        /* Recompute priority */
+        thread_foreach(recompute_threads_priority, NULL);
+    }
     thread_tick();
 }
 
