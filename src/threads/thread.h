@@ -99,7 +99,7 @@ struct thread {
     int nice;
     bool sleeping;                      /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
-    struct lock* blocked_by_lock;       /*!< Pointer to the lock on which this thread is waiting, if any. */
+    struct lock* waiting_for_lock;       /*!< Pointer to the lock on which this thread is waiting, if any. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     /**@}*/
 

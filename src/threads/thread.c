@@ -20,6 +20,10 @@
     of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+/*! Maximum number of dependencies that will be followed before giving
+    up on priority inversion.*/
+#define MAX_DEPENDENCY_DEPTH 8
+
 /*! List of processes in THREAD_READY state, that is, processes
     that are ready to run but not actually running. */
 static struct list ready_list;
@@ -219,7 +223,7 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    //list_push_back(&ready_list, &t->elem);
+    // list_push_back(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -264,6 +268,7 @@ void thread_exit(void) {
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
     intr_disable();
+    // list_remove(&thread_current()->elem);
     list_remove(&thread_current()->allelem);
     thread_current()->status = THREAD_DYING;
     schedule();
@@ -279,8 +284,6 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();
-    //if (cur != idle_thread)
-    //    list_push_back(&ready_list, &cur->elem);
     cur->status = THREAD_READY;
     schedule();
     intr_set_level(old_level);
@@ -308,7 +311,39 @@ void thread_set_priority(int new_priority) {
 
 /*! Returns the current thread's priority. */
 int thread_get_priority(void) {
-    return thread_current()->priority;
+    enum intr_level old_level = intr_disable();
+
+    /* We loop down our list of threads sorted by priority and stop once we see one
+       that either relies on this thread or *is* this thread.
+       The time complexity for this isn't great, but it's only used in the test cases.
+       Our solution for priority scheduling doesn't use this function at all. */
+
+    list_sort(&all_list, &priority_less_func, NULL);  //TODO: could keep it in order instead
+    list_reverse(&all_list);
+
+    struct thread* next_thread = list_entry(list_front(&all_list), struct thread, allelem);
+    // printf("Get priority of current thread %s. Let's loop over %d threads, ", thread_current()->name, list_size(&all_list));
+    while (next_thread != list_entry(list_tail(&all_list), struct thread, allelem)) {
+        ASSERT(is_thread(next_thread));
+        // printf("checking thread %s with priority %d\n", next_thread->name, next_thread->priority);
+        if (next_thread == thread_current()) {
+            // printf("Hey, that's our thread!\n");
+            intr_set_level(old_level);
+            return next_thread->priority;
+        } else if (next_thread->waiting_for_lock) {
+            int new_priority = next_thread->priority;
+            while (next_thread->waiting_for_lock) {
+                next_thread = next_thread->waiting_for_lock->holder;
+                ASSERT(is_thread(next_thread));
+                if (next_thread == thread_current()) {
+                    intr_set_level(old_level);
+                    return new_priority;
+                }
+            }
+        }
+        next_thread = list_entry(list_next(&next_thread->allelem), struct thread, allelem);
+    }
+    ASSERT(false);  // We should never get here, for obvious reasons
 }
 
 // We use effective priority here so that donated priority gets passed on
@@ -395,7 +430,9 @@ struct thread * running_thread(void) {
 
 /*! Returns true if T appears to point to a valid thread. */
 static bool is_thread(struct thread *t) {
-    return t != NULL && t->magic == THREAD_MAGIC;
+    bool a = t != NULL;
+    bool b = t->magic == THREAD_MAGIC;
+    return a && b;
 }
 
 /*! Does basic initialization of T as a blocked thread named NAME. */
@@ -412,7 +449,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     t->ticks_until_wake = 0;
-    t->blocked_by_lock = NULL;
+    t->waiting_for_lock = NULL;
     t->sleeping = false;
     t->magic = THREAD_MAGIC;
 
@@ -432,32 +469,70 @@ static void * alloc_frame(struct thread *t, size_t size) {
     return t->stack;
 }
 
+/*! Returns the first unblocked dependency of `thread`. If `thread` itself
+    is unblocked, returns `thread`. If such a thread cannot be found within
+    the maximum dependency depth, returns NULL. */
+static struct thread *unblocked_dependency_thread(struct thread *thread) {
+    int depth = 0;
+    while (thread->waiting_for_lock) {
+        if (++depth > MAX_DEPENDENCY_DEPTH) {
+            return NULL; // Give up, this is too deep, man!
+        }
+
+        // If the lock is no longer being held, this thread can be unblocked.
+        if (!(thread->waiting_for_lock->holder)) {
+            thread->waiting_for_lock = NULL;
+            // We found our thread! This'll be returned outside the loop.
+            continue;
+        } else {
+            // Otherwise, let's find a thread that can unblock this one.
+            thread = thread->waiting_for_lock->holder;
+            ASSERT(is_thread(thread));
+            continue;
+        }
+    }
+    ASSERT(is_thread(thread));
+    return thread;
+}
+
 /*! Chooses and returns the next thread to be scheduled.  Should return a
     thread from the run queue, unless the run queue is empty.  (If the running
     thread can continue running, then it will be in the run queue.)  If the
     run queue is empty, return idle_thread. */
-static struct thread * next_thread_to_run(void) {
-    list_sort(&all_list, &priority_less_func, NULL);  //TODO: keep it in order instead
+static struct thread *next_thread_to_run(void) {
+    enum intr_level old_level = intr_disable();
+
+    list_sort(&all_list, &priority_less_func, NULL);  //TODO: could keep it in order instead
     list_reverse(&all_list);
 
-    struct thread* next_thread = list_entry(list_front(&all_list), struct thread, allelem);
-    ASSERT(is_thread(next_thread));
+    struct list_elem* thread_elem;
+    struct thread* thread;
+    bool enable_priority_donation = true;
+    for (thread_elem = list_front(&all_list); thread_elem != list_tail(&all_list); thread_elem = list_next(thread_elem)) {
+        thread = list_entry(thread_elem, struct thread, allelem);
+        switch (thread->status) {
+            case THREAD_READY:
+            case THREAD_RUNNING:
+                break; // We found our thread!
+            case THREAD_BLOCKED:
+                if (!enable_priority_donation) continue;
+                if (!thread->waiting_for_lock) continue;
 
-    while (!(next_thread->status == THREAD_READY || next_thread->status == THREAD_RUNNING || next_thread->blocked_by_lock)) {
-        next_thread = list_entry(list_next(&next_thread->allelem), struct thread, allelem);
-        if (next_thread == list_entry(list_tail(&all_list), struct thread, allelem)) {
-            return idle_thread;
+                // Attempt to find a dependency
+                if ((thread = unblocked_dependency_thread(thread))) {
+                    break; // We found one!
+                } else {
+                    // Otherwise, just use the next unblocked thread
+                    enable_priority_donation = false;
+                    continue; // Keep looking...
+                }
+            default:
+                continue;
         }
-        ASSERT(is_thread(next_thread));
     }
-
-    while (next_thread->blocked_by_lock) {
-        next_thread = next_thread->blocked_by_lock->holder;
-        // TODO deal with recursion limit
-    }
-    ASSERT(is_thread(next_thread));
-
-    return next_thread;
+    ASSERT(is_thread(thread));
+    intr_set_level(old_level);
+    return thread;
 }
 
 /*! Completes a thread switch by activating the new thread's page tables, and,

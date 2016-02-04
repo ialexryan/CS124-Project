@@ -185,10 +185,10 @@ void lock_acquire(struct lock *lock) {
     enum intr_level old_level = intr_disable();
 
     if (lock->holder) { //If this lock is currently held by someone else,
-        thread_current()->blocked_by_lock = lock; // We will be blocked by it
+        thread_current()->waiting_for_lock = lock; // We will be blocked by it
     }
     sema_down(&lock->semaphore);
-    thread_current()->blocked_by_lock = NULL;
+    thread_current()->waiting_for_lock = NULL;
     lock->holder = thread_current();
 
     intr_set_level(old_level);
@@ -209,7 +209,7 @@ bool lock_try_acquire(struct lock *lock) {
     enum intr_level old_level = intr_disable();
     success = sema_try_down(&lock->semaphore);
     if (success) {
-        thread_current()->blocked_by_lock = NULL;
+        thread_current()->waiting_for_lock = NULL;
         lock->holder = thread_current();
     }
 
@@ -226,8 +226,12 @@ void lock_release(struct lock *lock) {
     ASSERT(lock != NULL);
     ASSERT(lock_held_by_current_thread(lock));
 
+    // loop over all the threads that were blocked on this lock
+    // and set
+
     lock->holder = NULL;
     sema_up(&lock->semaphore);
+    thread_yield();
 }
 
 /*! Returns true if the current thread holds LOCK, false
