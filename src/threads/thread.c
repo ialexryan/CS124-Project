@@ -495,32 +495,32 @@ static struct thread *unblocked_dependency_thread(struct thread *thread) {
     return thread;
 }
 
+
 /*! Chooses and returns the next thread to be scheduled.  Should return a
     thread from the run queue, unless the run queue is empty.  (If the running
     thread can continue running, then it will be in the run queue.)  If the
     run queue is empty, return idle_thread. */
 static struct thread *next_thread_to_run(void) {
-    enum intr_level old_level = intr_disable();
-
     list_sort(&all_list, &priority_less_func, NULL);  //TODO: could keep it in order instead
     list_reverse(&all_list);
-
+    
+    bool enable_priority_donation = false;
     struct list_elem* thread_elem;
-    struct thread* thread;
-    bool enable_priority_donation = false; // TODO: MAKE TRUE
     for (thread_elem = list_front(&all_list); thread_elem != list_tail(&all_list); thread_elem = list_next(thread_elem)) {
-        thread = list_entry(thread_elem, struct thread, allelem);
+        struct thread* thread = list_entry(thread_elem, struct thread, allelem);
+        ASSERT(is_thread(thread));
+        
         switch (thread->status) {
             case THREAD_READY:
             case THREAD_RUNNING:
-                break; // We found our thread!
+                return thread;
             case THREAD_BLOCKED:
                 if (!enable_priority_donation) continue;
                 if (!thread->waiting_for_lock) continue;
-
+            
                 // Attempt to find a dependency
                 if ((thread = unblocked_dependency_thread(thread))) {
-                    break; // We found one!
+                    return thread; // Found one!
                 } else {
                     // Otherwise, just use the next unblocked thread
                     enable_priority_donation = false;
@@ -530,9 +530,42 @@ static struct thread *next_thread_to_run(void) {
                 continue;
         }
     }
+    return idle_thread;
+
+    /*
+//    struct list_elem* thread_elem;
+//    struct thread* thread;
+//    bool enable_priority_donation = false; // TODO: MAKE TRUE
+//    for (thread_elem = list_front(&all_list); thread_elem != list_tail(&all_list); thread_elem = list_next(thread_elem)) {
+//        thread = list_entry(thread_elem, struct thread, allelem);
+        switch (thread->status) {
+            case THREAD_READY:
+            case THREAD_RUNNING:
+                break; // We found our thread!
+//            case THREAD_BLOCKED:
+//                if (!enable_priority_donation) continue;
+//                if (!thread->waiting_for_lock) continue;
+//
+//                // Attempt to find a dependency
+//                if ((thread = unblocked_dependency_thread(thread))) {
+//                    break; // We found one!
+//                } else {
+//                    // Otherwise, just use the next unblocked thread
+//                    enable_priority_donation = false;
+//                    continue; // Keep looking...
+//                }
+            default:
+                break;
+        }
+        thread = list_entry(list_next(&thread->allelem), struct thread, allelem);
+    }
+    if (!thread) {
+        thread = idle_thread;
+    }
     ASSERT(is_thread(thread));
     intr_set_level(old_level);
     return thread;
+     */
 }
 
 /*! Completes a thread switch by activating the new thread's page tables, and,
