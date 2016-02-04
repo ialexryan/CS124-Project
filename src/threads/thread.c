@@ -312,9 +312,9 @@ int thread_get_priority(void) {
 
 // We use effective priority here so that donated priority gets passed on
 bool priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-    struct thread* thread_a = list_entry(a, struct thread, elem);
-    struct thread* thread_b = list_entry(b, struct thread, elem);
-    return thread_a->priority > thread_b->priority;
+    struct thread* thread_a = list_entry(a, struct thread, allelem);
+    struct thread* thread_b = list_entry(b, struct thread, allelem);
+    return thread_a->priority < thread_b->priority;
 }
 
 /*! Sets the current thread's nice value to NICE. */
