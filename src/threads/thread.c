@@ -437,6 +437,7 @@ static void * alloc_frame(struct thread *t, size_t size) {
     run queue is empty, return idle_thread. */
 static struct thread * next_thread_to_run(void) {
     list_sort(&all_list, &priority_less_func, NULL);  //TODO: keep it in order instead
+    list_reverse(&all_list);
 
     struct thread* next_thread = list_entry(list_front(&all_list), struct thread, allelem);
     ASSERT(is_thread(next_thread));
