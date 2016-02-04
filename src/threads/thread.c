@@ -507,7 +507,7 @@ static struct thread *next_thread_to_run(void) {
 
     struct list_elem* thread_elem;
     struct thread* thread;
-    bool enable_priority_donation = true;
+    bool enable_priority_donation = false; // TODO: MAKE TRUE
     for (thread_elem = list_front(&all_list); thread_elem != list_tail(&all_list); thread_elem = list_next(thread_elem)) {
         thread = list_entry(thread_elem, struct thread, allelem);
         switch (thread->status) {
