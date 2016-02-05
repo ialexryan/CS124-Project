@@ -336,7 +336,7 @@ void thread_priority_conditional_yield(void) {
 /* Have the current thread recompute its effective priority, which is the maximum of its
    base priority and all its donors' effective priorities. */
 void thread_recompute_priority(struct thread* t) {
-    if (false && thread_mlfqs) {
+    if (thread_mlfqs) {
         // Recompute, clamp, and update priority
         int priority = PRI_MAX - (t->recent_cpu) / 4 - t->nice * 2;
         if (priority > PRI_MAX) priority = PRI_MAX;
@@ -373,15 +373,12 @@ void force_blocking_threads_to_recompute_priorities(void) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-//    if (thread_mlfqs) return;
+    if (thread_mlfqs) return;
     enum intr_level old_level = intr_disable();
 
     thread_current()->base_priority = new_priority;
     thread_recompute_priority(thread_current());
     force_blocking_threads_to_recompute_priorities();
-
-    // TODO: find a way to tell all the threads I depend on about my new priority
-    //       a.k.a. to tell all the threads I depend on to recompute their priorities
     thread_priority_conditional_yield();
 
     intr_set_level(old_level);
