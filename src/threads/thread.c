@@ -399,8 +399,7 @@ void thread_set_nice(int nice) {
     thread_current()->nice = nice;
     
     thread_recompute_priority(thread_current());
-    // Yield if the running thread does not have the greatest priority
-    // TODO
+    thread_priority_conditional_yield();
 }
 
 /*! Returns the current thread's nice value. */

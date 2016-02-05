@@ -164,16 +164,12 @@ void timer_print_stats(void) {
 /*! Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame *args UNUSED) {
     ticks++;
-
-    /* Loop over all threads, decrementing the ticks_until_wake and
-    unblocking when appropriate */
-    thread_foreach(decrement_threads_wake_counters, NULL);
     
     /* Once per second... */
     if (ticks % TIMER_FREQ == 0) {
         /* Update system load average */
         thread_update_load_avg();
-
+        
         /* Loop over all threads and update their recent cpu usage */
         thread_foreach(update_threads_recent_cpu, NULL);
         thread_current_increment_recent_cpu();
@@ -184,6 +180,11 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
         /* Recompute priority */
         thread_foreach(recompute_threads_priority, NULL);
     }
+
+    /* Loop over all threads, decrementing the ticks_until_wake and
+    unblocking when appropriate */
+    thread_foreach(decrement_threads_wake_counters, NULL);
+    
     thread_tick();
 }
 
