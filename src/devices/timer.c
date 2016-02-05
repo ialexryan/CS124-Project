@@ -31,6 +31,7 @@ static bool too_many_loops(unsigned loops);
 static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
 static void real_time_delay(int64_t num, int32_t denom);
+void decrement_threads_wake_counters(struct thread *t, void *aux);
 
 /*! Sets up the timer to interrupt TIMER_FREQ times per second,
     and registers the corresponding interrupt. */
@@ -78,7 +79,7 @@ int64_t timer_elapsed(int64_t then) {
     return timer_ticks() - then;
 }
 
-void decrement_threads_wake_counters(struct thread *t, void *aux) {
+void decrement_threads_wake_counters(struct thread *t, void *aux UNUSED) {
     if (t->sleeping == true) {
         ASSERT(t->status == THREAD_BLOCKED);
         if (t->ticks_until_wake > 0)
