@@ -354,6 +354,7 @@ void force_blocking_threads_to_recompute_priorities(void) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+    if (thread_mlfqs) return;
     enum intr_level old_level = intr_disable();
 
     thread_current()->base_priority = new_priority;
@@ -459,6 +460,7 @@ bool is_thread(struct thread *t) {
 
 /*! Does basic initialization of T as a blocked thread named NAME. */
 static void init_thread(struct thread *t, const char *name, int priority) {
+    if (thread_mlfqs) priority = PRI_DEFAULT;
     enum intr_level old_level;
 
     ASSERT(t != NULL);
