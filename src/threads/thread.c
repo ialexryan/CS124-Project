@@ -408,14 +408,11 @@ void thread_set_nice(int nice) {
 
 /*! Returns the current thread's nice value. */
 int thread_get_nice(void) {
-    /* Not yet implemented. */
-    return 0;
+    return thread_current()->nice;
 }
 
 int ready_threads_count(void) {
-    return 0;
-    // Get the number of ready threads
-    // TODO
+    return list_size(&ready_list);
 }
 
 /*! Computes: (59/60) * load_avg + (1/60) * ready_threads */
