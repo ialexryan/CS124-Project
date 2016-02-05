@@ -228,7 +228,7 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_push_back(&ready_list, &t->elem);
+    list_insert_ordered(&ready_list, &t->elem, priority_less_func__readyorsemalist, NULL);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -289,7 +289,7 @@ void thread_yield(void) {
 
     old_level = intr_disable();
     if (cur != idle_thread)
-        list_push_back(&ready_list, &cur->elem);
+        list_insert_ordered(&ready_list, &cur->elem, priority_less_func__readyorsemalist, NULL);
     cur->status = THREAD_READY;
     schedule();
     intr_set_level(old_level);
@@ -326,8 +326,7 @@ bool priority_less_func__donorlist (const struct list_elem *a, const struct list
    than the priority of the highest-priority thread in the ready_list. */
 void thread_priority_conditional_yield(void) {
     if (!(list_empty(&ready_list))) {
-        if ((list_entry(list_max(&ready_list, &priority_less_func__readyorsemalist, NULL), struct thread, elem))->priority >
-        thread_current()->priority) {
+        if ((list_entry(list_back(&ready_list), struct thread, elem))->priority > thread_current()->priority) {
             thread_yield();
         }
     }
@@ -357,6 +356,9 @@ void thread_recompute_priority(struct thread* t) {
                                            donor_elem))->priority;
         t->priority = (base_priority > donated_priority) ? base_priority : donated_priority;
     }
+    // Place in sorted position in ready list
+    list_remove(&t->elem);
+    list_insert_ordered(&ready_list, &t->elem, priority_less_func__readyorsemalist, NULL);
 }
 
 void force_blocking_threads_to_recompute_priorities(void) {
@@ -555,9 +557,8 @@ static void * alloc_frame(struct thread *t, size_t size) {
 static struct thread * next_thread_to_run(void) {
     if (list_empty(&ready_list)){
         return idle_thread;
-    } else {  // This is all just effectively list_pop_max
-        struct list_elem* max_pri_elem = list_max(&ready_list, &priority_less_func__readyorsemalist, NULL);
-        list_remove(max_pri_elem);
+    } else {
+        struct list_elem* max_pri_elem = list_pop_back(&ready_list);
         return list_entry(max_pri_elem, struct thread, elem);
     }
 }
