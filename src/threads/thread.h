@@ -95,12 +95,15 @@ struct thread {
     enum thread_status status;          /*!< Thread state. */
     char name[16];                      /*!< Name (for debugging purposes). */
     uint8_t *stack;                     /*!< Saved stack pointer. */
-    int priority;                       /*!< Priority. */
     int nice;
     int recent_cpu;
-    bool sleeping;                      /*!< True if this thread is sleeping, false otherwise. */
+    int base_priority;                  /*!< Fundamental original priority - no donations. */
+    int priority;                       /*!< Effective priority, including donations. */
+    struct lock* blocked_by_lock;       /*!< Waiting on this lock in order to continue. */
+    struct list donors;                 /*!< This is a list of threads that are waiting on locks we currently hold. */
+    struct list_elem donor_elem;        /*!< List elem for being a member of donors lists (like above). */
+    bool sleeping;                       /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
-    struct lock* blocked_by_lock;       /*!< Pointer to the lock on which this thread is waiting, if any. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     /**@}*/
 
@@ -151,6 +154,11 @@ typedef void thread_action_func(struct thread *t, void *aux);
 
 void thread_foreach(thread_action_func *, void *);
 
+bool priority_less_func__readyorsemalist(const struct list_elem *a, const struct list_elem *b, void *aux);
+void thread_priority_conditional_yield(void);
+void thread_recompute_priority(struct thread* t);
+void force_blocking_threads_to_recompute_priorities(void);
+
 int thread_get_priority(void);
 void thread_set_priority(int);
 
@@ -163,5 +171,6 @@ void thread_recompute_priority(struct thread *t);
 void thread_update_load_avg(void);
 void thread_update_recent_cpu(struct thread *t);
 void thread_current_increment_recent_cpu(void);
+bool is_thread(struct thread *t);
 
 #endif /* threads/thread.h */

@@ -11,7 +11,6 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -24,8 +23,6 @@
 /*! List of processes in THREAD_READY state, that is, processes
     that are ready to run but not actually running. */
 static struct list ready_list;
-
-static struct list *priority_lists;
 
 /*! List of all processes.  Processes are added to this list
     when they are first scheduled and removed when they exit. */
@@ -72,7 +69,6 @@ static void idle(void *aux UNUSED);
 static struct thread *running_thread(void);
 static struct thread *next_thread_to_run(void);
 static void init_thread(struct thread *, const char *name, int priority);
-static bool is_thread(struct thread *) UNUSED;
 static void *alloc_frame(struct thread *, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
@@ -81,6 +77,8 @@ int updated_recent_cpu(int recent_cpu);
 int updated_load_avg(int recent_cpu);
 bool priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 int ready_threads_count(void);
+bool priority_less_func__readyorsemalist (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool priority_less_func__donorlist (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /*! Initializes the threading system by transforming the code
     that's currently running into a thread.  This can't work in
@@ -99,12 +97,6 @@ void thread_init(void) {
     lock_init(&tid_lock);
     list_init(&ready_list);
     list_init(&all_list);
-    
-    priority_lists = malloc(sizeof(struct list) * PRI_MAX);
-    struct list *p;
-    for (p = priority_lists; p < priority_lists + PRI_MAX; p++) {
-        list_init(p);
-    }
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread();
@@ -204,6 +196,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     /* Add to run queue. */
     thread_unblock(t);
+    thread_priority_conditional_yield();
 
     return tid;
 }
@@ -235,7 +228,7 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    //list_push_back(&ready_list, &t->elem);
+    list_push_back(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -295,8 +288,8 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();
-    //if (cur != idle_thread)
-    //    list_push_back(&ready_list, &cur->elem);
+    if (cur != idle_thread)
+        list_push_back(&ready_list, &cur->elem);
     cur->status = THREAD_READY;
     schedule();
     intr_set_level(old_level);
@@ -316,39 +309,91 @@ void thread_foreach(thread_action_func *func, void *aux) {
     }
 }
 
+// Functions used for sorting lists of threads by priority. I HATE SO MUCH that these depend on which list is used.
+// We use effective priority here, not base_priority, so that donated priority gets passed on.
+bool priority_less_func__readyorsemalist (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+    struct thread* thread_a = list_entry(a, struct thread, elem);
+    struct thread* thread_b = list_entry(b, struct thread, elem);
+    return thread_a->priority < thread_b->priority;
+}
+bool priority_less_func__donorlist (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+    struct thread* thread_a = list_entry(a, struct thread, donor_elem);
+    struct thread* thread_b = list_entry(b, struct thread, donor_elem);
+    return thread_a->priority < thread_b->priority;
+}
+
+/* This function makes the current thread yield, if the current thread's priority is less
+   than the priority of the highest-priority thread in the ready_list. */
+void thread_priority_conditional_yield(void) {
+    if (!(list_empty(&ready_list))) {
+        if ((list_entry(list_max(&ready_list, &priority_less_func__readyorsemalist, NULL), struct thread, elem))->priority >
+        thread_current()->priority) {
+            thread_yield();
+        }
+    }
+}
+
+/* Have the current thread recompute its effective priority, which is the maximum of its
+   base priority and all its donors' effective priorities. */
+void thread_recompute_priority(struct thread* t) {
+    if (false && thread_mlfqs) {
+        // Recompute, clamp, and update priority
+        int priority = PRI_MAX - (t->recent_cpu) / 4 - t->nice * 2;
+        if (priority > PRI_MAX) priority = PRI_MAX;
+        else if (priority < PRI_MIN) priority = PRI_MIN;
+        t->priority = priority;
+    } else{
+        if (list_empty(&(t->donors))) {
+            t->priority = t->base_priority;
+            return;
+        }
+        int base_priority = t->base_priority;
+        int donated_priority = (list_entry(
+                                           list_max(
+                                                    &(t->donors),
+                                                    &priority_less_func__donorlist,
+                                                    NULL),
+                                           struct thread,
+                                           donor_elem))->priority;
+        t->priority = (base_priority > donated_priority) ? base_priority : donated_priority;
+    }
+}
+
+void force_blocking_threads_to_recompute_priorities(void) {
+    int remaining_depth = 8;
+    struct thread* thread = thread_current();
+    while (remaining_depth) {
+        if (!thread->blocked_by_lock) return;
+        if (!thread->blocked_by_lock->holder) return;
+        thread_recompute_priority(thread->blocked_by_lock->holder);
+        thread = thread->blocked_by_lock->holder;
+        remaining_depth--;
+    }
+}
+
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-    int old_priority = thread_current()->priority;
-    if (old_priority != new_priority) {
-        // Remove from old priority queue
-        list_remove(&priority_lists[old_priority]);
-        
-        // Add to new priority queue
-        
-        
-        // Update thread priority
-        thread_current()->priority = new_priority;
-    }
+//    if (thread_mlfqs) return;
+    enum intr_level old_level = intr_disable();
+
+    thread_current()->base_priority = new_priority;
+    thread_recompute_priority(thread_current());
+    force_blocking_threads_to_recompute_priorities();
+
+    // TODO: find a way to tell all the threads I depend on about my new priority
+    //       a.k.a. to tell all the threads I depend on to recompute their priorities
+    thread_priority_conditional_yield();
+
+    intr_set_level(old_level);
 }
 
 /*! Returns the current thread's priority. */
 int thread_get_priority(void) {
-    return thread_current()->priority;
-}
-
-// We use effective priority here so that donated priority gets passed on
-bool priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-    struct thread* thread_a = list_entry(a, struct thread, elem);
-    struct thread* thread_b = list_entry(b, struct thread, elem);
-    return thread_a->priority > thread_b->priority;
-}
-
-void thread_recompute_priority(struct thread *t) {
-    // Recompute, clamp, and update priority
-    int priority = PRI_MAX - (t->recent_cpu) / 4 - t->nice * 2;
-    if (priority > PRI_MAX) priority = PRI_MAX;
-    else if (priority < PRI_MIN) priority = PRI_MIN;
-    t->priority = priority;
+    enum intr_level old_level = intr_disable();
+    thread_recompute_priority(thread_current());
+    int output = thread_current()->priority;
+    intr_set_level(old_level);
+    return output;
 }
 
 /*! Sets the current thread's nice value to NICE. */
@@ -363,7 +408,8 @@ void thread_set_nice(int nice) {
 
 /*! Returns the current thread's nice value. */
 int thread_get_nice(void) {
-    return thread_current()->nice;
+    /* Not yet implemented. */
+    return 0;
 }
 
 int ready_threads_count(void) {
@@ -465,12 +511,13 @@ struct thread * running_thread(void) {
 }
 
 /*! Returns true if T appears to point to a valid thread. */
-static bool is_thread(struct thread *t) {
+bool is_thread(struct thread *t) {
     return t != NULL && t->magic == THREAD_MAGIC;
 }
 
 /*! Does basic initialization of T as a blocked thread named NAME. */
 static void init_thread(struct thread *t, const char *name, int priority) {
+    if (thread_mlfqs) priority = PRI_DEFAULT;
     enum intr_level old_level;
 
     ASSERT(t != NULL);
@@ -481,9 +528,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->status = THREAD_BLOCKED;
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
+    t->base_priority = priority;
     t->priority = priority;
-    t->ticks_until_wake = 0;
     t->blocked_by_lock = NULL;
+    list_init(&(t->donors));
+    t->ticks_until_wake = 0;
     t->sleeping = false;
     t->magic = THREAD_MAGIC;
 
@@ -508,26 +557,13 @@ static void * alloc_frame(struct thread *t, size_t size) {
     thread can continue running, then it will be in the run queue.)  If the
     run queue is empty, return idle_thread. */
 static struct thread * next_thread_to_run(void) {
-    list_sort(&all_list, &priority_less_func, NULL);  //TODO: keep it in order instead
-
-    struct thread* next_thread = list_entry(list_front(&all_list), struct thread, allelem);
-    ASSERT(is_thread(next_thread));
-
-    while (!(next_thread->status == THREAD_READY || next_thread->status == THREAD_RUNNING || next_thread->blocked_by_lock)) {
-        next_thread = list_entry(list_next(&next_thread->allelem), struct thread, allelem);
-        if (next_thread == list_entry(list_tail(&all_list), struct thread, allelem)) {
-            return idle_thread;
-        }
-        ASSERT(is_thread(next_thread));
+    if (list_empty(&ready_list)){
+        return idle_thread;
+    } else {  // This is all just effectively list_pop_max
+        struct list_elem* max_pri_elem = list_max(&ready_list, &priority_less_func__readyorsemalist, NULL);
+        list_remove(max_pri_elem);
+        return list_entry(max_pri_elem, struct thread, elem);
     }
-
-    while (next_thread->blocked_by_lock) {
-        next_thread = next_thread->blocked_by_lock->holder;
-        // TODO deal with recursion limit
-    }
-    ASSERT(is_thread(next_thread));
-
-    return next_thread;
 }
 
 /*! Completes a thread switch by activating the new thread's page tables, and,
