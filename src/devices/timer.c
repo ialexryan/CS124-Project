@@ -172,8 +172,8 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
         
         /* Loop over all threads and update their recent cpu usage */
         thread_foreach(update_threads_recent_cpu, NULL);
-        thread_current_increment_recent_cpu();
     }
+    thread_current_increment_recent_cpu();
     
     /* Every fourth tick... */
     if (ticks % 4 == 0) {

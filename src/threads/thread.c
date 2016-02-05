@@ -73,7 +73,7 @@ static void *alloc_frame(struct thread *, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
-int updated_recent_cpu(int recent_cpu);
+int updated_recent_cpu(int recent_cpu, int nice);
 int updated_load_avg(int recent_cpu);
 bool priority_less_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 int ready_threads_count(void);
@@ -408,7 +408,7 @@ int thread_get_nice(void) {
 }
 
 int ready_threads_count(void) {
-    return list_size(&ready_list);
+    return list_size(&ready_list) + 1;
 }
 
 /*! Computes: (59/60) * load_avg + (1/60) * ready_threads */
@@ -418,7 +418,7 @@ int updated_load_avg(int load_avg) {
 
 /*! Updates the value of load_avg using an exponentially degrading formula. */
 void thread_update_load_avg(void) {
-    thread_current()->recent_cpu = updated_recent_cpu(thread_current()->recent_cpu);
+    load_avg = updated_load_avg(load_avg);
 }
 
 /*! Returns 100 times the system load average. */
@@ -427,23 +427,26 @@ int thread_get_load_avg(void) {
 }
 
 /*! Computes: (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice */
-int updated_recent_cpu(int recent_cpu) {
+int updated_recent_cpu(int recent_cpu, int nice) {
     int32_t numerator = 2 * load_avg;
     int32_t denominator = 2 * load_avg + 1 * f_value;
     int32_t ratio = ((int64_t)numerator) * f_value / denominator;
     int32_t multiplied = ((int64_t)ratio) * recent_cpu / f_value;
-    return multiplied + (thread_current()->nice) * f_value;
+    return multiplied + nice * f_value;
 }
 
 /*! Updates the value of recent_cpu using an exponentially degrading formula. */
 void thread_update_recent_cpu(struct thread *t) {
-    t->recent_cpu = updated_recent_cpu(thread_current()->recent_cpu);
+    t->recent_cpu = updated_recent_cpu(t->recent_cpu, t->nice);
 }
 
 /*! Increments the recent_cpu value for the current thread. */
 void thread_current_increment_recent_cpu(void) {
     struct thread *current_thread = thread_current();
-    if (current_thread != idle_thread) current_thread->recent_cpu += 1;
+    ASSERT(is_thread(current_thread));
+    if (current_thread != idle_thread) {
+        current_thread->recent_cpu += 1;
+    }
 }
 
 /*! Returns 100 times the current thread's recent_cpu value. */
