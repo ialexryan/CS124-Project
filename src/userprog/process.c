@@ -26,20 +26,33 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
     returns.  Returns the new process's thread id, or TID_ERROR if the thread
     cannot be created. */
 tid_t process_execute(const char *file_name) {
-    char *fn_copy;
+    char *pn_copy;
     tid_t tid;
 
-    /* Make a copy of FILE_NAME.
+    /* Split file_name by spaces */
+    /* strtok_r needs a mutable copy of the argument */
+    char file_name_copy[128];
+    strlcpy(file_name_copy, file_name, 128);  // This is nice and safe, should truncate at 127 chars
+
+    char *saveptr;
+    char *program_name, *foo;
+    program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program we want
+    printf("Program name is: %s\n", program_name);
+    while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, it's an assignment
+        printf("Found token : %s\n", foo);
+    }
+
+    /* Make a copy of program_name.
        Otherwise there's a race between the caller and load(). */
-    fn_copy = palloc_get_page(0);
-    if (fn_copy == NULL)
+    pn_copy = palloc_get_page(0);
+    if (pn_copy == NULL)
         return TID_ERROR;
-    strlcpy(fn_copy, file_name, PGSIZE);
+    strlcpy(pn_copy, program_name, PGSIZE);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+    tid = thread_create(program_name, PRI_DEFAULT, start_process, pn_copy);
     if (tid == TID_ERROR)
-        palloc_free_page(fn_copy); 
+        palloc_free_page(pn_copy);
     return tid;
 }
 
@@ -58,7 +71,7 @@ static void start_process(void *file_name_) {
 
     /* If load failed, quit. */
     palloc_free_page(file_name);
-    if (!success) 
+    if (!success)
         thread_exit();
 
     /* Start the user process by simulating a return from an
@@ -200,7 +213,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
 
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();
-    if (t->pagedir == NULL) 
+    if (t->pagedir == NULL)
         goto done;
     process_activate();
 
@@ -208,7 +221,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     file = filesys_open(file_name);
     if (file == NULL) {
         printf("load: %s: open failed\n", file_name);
-        goto done; 
+        goto done;
     }
 
     /* Read and verify executable header. */
@@ -217,7 +230,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
         ehdr.e_machine != 3 || ehdr.e_version != 1 ||
         ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024) {
         printf("load: %s: error loading executable\n", file_name);
-        goto done; 
+        goto done;
     }
 
     /* Read program headers. */
@@ -302,8 +315,8 @@ static bool install_page(void *upage, void *kpage, bool writable);
     FILE and returns true if so, false otherwise. */
 static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
     /* p_offset and p_vaddr must have the same page offset. */
-    if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK)) 
-        return false; 
+    if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK))
+        return false;
 
     /* p_offset must point within FILE. */
     if (phdr->p_offset > (Elf32_Off) file_length(file))
@@ -311,12 +324,12 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
 
     /* p_memsz must be at least as big as p_filesz. */
     if (phdr->p_memsz < phdr->p_filesz)
-        return false; 
+        return false;
 
     /* The segment must not be empty. */
     if (phdr->p_memsz == 0)
         return false;
-  
+
     /* The virtual memory region must both start and end within the
        user address space range. */
     if (!is_user_vaddr((void *) phdr->p_vaddr))
@@ -383,7 +396,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
         /* Add the page to the process's address space. */
         if (!install_page(upage, kpage, writable)) {
             palloc_free_page(kpage);
-            return false; 
+            return false;
         }
 
         /* Advance. */
@@ -404,7 +417,7 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
-            *esp = PHYS_BASE;
+            *esp = PHYS_BASE - 12;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
         else
             palloc_free_page(kpage);
     }
@@ -428,4 +441,3 @@ static bool install_page(void *upage, void *kpage, bool writable) {
     return (pagedir_get_page(t->pagedir, upage) == NULL &&
             pagedir_set_page(t->pagedir, upage, kpage, writable));
 }
-
