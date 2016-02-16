@@ -19,8 +19,8 @@ void syscall_init(void) {
 }
 
 void syscall_handler(struct intr_frame *f UNUSED) {
-    printf("system call!\n");
-    thread_exit();
+    // Run system call
+    handlers[f->eax](f);
 }
 
 void sys_halt(struct intr_frame *f UNUSED) {
