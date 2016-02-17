@@ -6,11 +6,12 @@
 
 static void syscall_handler(struct intr_frame *);
 
-#define ARG_N(f, type, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
-#define ARG_0(f, type) ARG_N(f, type, 0)
-#define ARG_1(f, type) ARG_N(f, type, 1)
-#define ARG_2(f, type) ARG_N(f, type, 2)
-#define ARG_3(f, type) ARG_N(f, type, 3)
+// Gets the nth argument given the stack frame, casting to the correct type
+#define ARG_N(f, n, type) (*(type *)((uint32_t *)((f)->esp) + (n)))
+#define ARG_N_(TUPLE) ARG_N TUPLE
+
+// Transforms a variadic list of types to a variadic list of arguments from the stack frame
+#define SYS_ARGS(f, ...) MAP(ARG_N, MAP(UNCURRY3, PREPEND(f, ENUMERATE(MAP(ARG_TYPE, __VA_ARGS__)))))
 
 #define HOLD_SYSCALL(TYPE_NAME, HANDLER_NAME, ...) void sys_ ## HANDLER_NAME(struct intr_frame *f);
 SYSCALL_LIST
@@ -26,7 +27,7 @@ void syscall_init(void) {
 
 void syscall_handler(struct intr_frame *f) {
     // Run system call
-    uint32_t syscall_id = ARG_0(f, uint32_t);
+    uint32_t syscall_id = ARG_N(f, 0, uint32_t);
     handlers[syscall_id](f);
 }
 
