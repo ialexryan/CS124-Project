@@ -12,13 +12,13 @@ static void syscall_handler(struct intr_frame *);
 #define ARG_2(f, type) ARG_N(f, type, 2)
 #define ARG_3(f, type) ARG_N(f, type, 3)
 
-#define syscall_type(type, handler) void handler(struct intr_frame *f);
-SYSCALL_TYPES
-#undef syscall_type
+#define HOLD_SYSCALL(TYPE_NAME, HANDLER_NAME, ...) void sys_ ## HANDLER_NAME(struct intr_frame *f);
+SYSCALL_LIST
+#undef HOLD_SYSCALL
 
-#define syscall_type(type, handler) handler,
-void (*handlers[])(struct intr_frame *) = { SYSCALL_TYPES };
-#undef syscall_type
+#define HOLD_SYSCALL(TYPE_NAME, HANDLER_NAME, ...) sys_ ## HANDLER_NAME,
+void (*handlers[])(struct intr_frame *) = { SYSCALL_LIST };
+#undef HOLD_SYSCALL
 
 void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
