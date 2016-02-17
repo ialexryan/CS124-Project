@@ -293,9 +293,77 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     if (!setup_stack(esp))
         goto done;
 
+    /* The code that follows is horribly impenetrable.
+       Remember that the stack grows downward.
+       Check out this example of how our stack will look for "echo -l foo barrr":
+
+        Address	    Name	        Data	    Type
+        0xbffffffb	argv[0][...]	echo\0	    char[5]
+        0xbffffff8	argv[1][...]	-l\0	    char[3]
+        0xbffffff4	argv[2][...]	foo\0	    char[4]
+        0xbfffffee	argv[3][...]	barrr\0	    char[6]
+        0xbfffffec	word-align	    0 0	        uint8_t
+        0xbfffffe8	argv[4]	        0	        char *
+        0xbfffffe4	argv[3]	        0xbfffffee	char *
+        0xbfffffe0	argv[2]      	0xbffffff4	char *
+        0xbfffffdc	argv[1]	        0xbffffff8	char *
+        0xbfffffd8	argv[0]	        0xbffffffb	char *
+        0xbfffffd4	argv	        0xbfffffd8	char **
+        0xbfffffd0	argc	        4	        int
+        0xbfffffcc	return address	0	        void (*) ()
+    */
+
+
+    int argc = 0;
+    char* argv[96] = {};  // Keep track of where we put all the arguments
+
+    // Push the name of the program on the stack
+    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
+    printf ("The length of the name of the exe is %d\n", strlen(program_name)); // TODO remove
+    *esp -= strlen(program_name) + 1;  // strlen doesn't count the null-terminator
+    strlcpy(*esp, program_name, strlen(program_name) + 1);
+    argv[0] = (char*)(*esp);
+    argc++;
+    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
+
+    // Push each space-separated argument onto the stack
     while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, this line is an assignment
-        printf("Found token : %s\n", foo);  // TODO remove
+        *esp -= strlen(foo) + 1;
+        strlcpy(*esp, foo, strlen(foo) + 1);
+        printf("Found token : %s which is %d chars long, put in %p\n", foo, strlen(foo), *esp);  // TODO remove
+        argv[argc] = (char*)(*esp);
+        argc++;
     }
+    printf ("this many arguments: %d\n", argc); // TODO remove
+    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
+
+    // Pad to word-aligned access
+    int padding_length = (uint32_t)(*esp) % 4;
+    printf ("current word padding needed is %d\n", padding_length); // TODO remove
+    *esp -= padding_length;
+    memset(*esp, 0, padding_length);
+
+    // Loop over everything in argv **from last to first**, pushing it into the stack
+    for (i = argc; i >= 0; i--) {
+        *esp -= sizeof(char*);
+        *((char**)*esp) = argv[i];
+    }
+
+    // Push the actual stack address of argv onto the stack (this seems kind of silly)
+    char** x = *esp;
+    printf("argv is at %p\n", x);
+    *esp -= sizeof(char*);
+    *((char***)*esp) = x;
+
+    // Push argc onto the stack
+    *esp -= sizeof(int);
+    *((int*)*esp) = argc;
+
+    // And finally, push a "return address" (unused) of zero
+    *esp -= sizeof(void*);
+    memset(*esp, 0, sizeof(void*));
+
+    hex_dump(0, *esp, 64, true);
 
     /* Start address. */
     *eip = (void (*)(void)) ehdr.e_entry;
@@ -418,7 +486,7 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
-            *esp = PHYS_BASE - 12;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
+            *esp = PHYS_BASE;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
         else
             palloc_free_page(kpage);
     }
