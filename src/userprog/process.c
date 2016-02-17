@@ -293,9 +293,13 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     if (!setup_stack(esp))
         goto done;
 
-    /* The code that follows is horribly impenetrable.
+    /* Here's where we tokenize the rest of the command string
+       and push all the arguments onto the stack.
+       The code that follows is horribly impenetrable.
        Remember that the stack grows downward.
-       Check out this example of how our stack will look for "echo -l foo barrr":
+       Remember esp is a void**.
+       Check out this real, tested example of how our stack will look for
+       "echo -l foo barrr":
 
         Address	    Name	        Data	    Type
         0xbffffffb	argv[0][...]	echo\0	    char[5]
@@ -313,45 +317,36 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
         0xbfffffcc	return address	0	        void (*) ()
     */
 
-
     int argc = 0;
     char* argv[96] = {};  // Keep track of where we put all the arguments
 
     // Push the name of the program on the stack
-    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
-    printf ("The length of the name of the exe is %d\n", strlen(program_name)); // TODO remove
     *esp -= strlen(program_name) + 1;  // strlen doesn't count the null-terminator
     strlcpy(*esp, program_name, strlen(program_name) + 1);
     argv[0] = (char*)(*esp);
     argc++;
-    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
 
     // Push each space-separated argument onto the stack
     while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, this line is an assignment
         *esp -= strlen(foo) + 1;
         strlcpy(*esp, foo, strlen(foo) + 1);
-        printf("Found token : %s which is %d chars long, put in %p\n", foo, strlen(foo), *esp);  // TODO remove
         argv[argc] = (char*)(*esp);
         argc++;
     }
-    printf ("this many arguments: %d\n", argc); // TODO remove
-    printf ("Current stack pointer is %p, PHYS_BASE is %p\n", *esp, PHYS_BASE); // TODO remove
 
     // Pad to word-aligned access
     int padding_length = (uint32_t)(*esp) % 4;
-    printf ("current word padding needed is %d\n", padding_length); // TODO remove
     *esp -= padding_length;
     memset(*esp, 0, padding_length);
 
-    // Loop over everything in argv **from last to first**, pushing it into the stack
+    // Loop over everything in argv __from last to first__, pushing it into the stack
     for (i = argc; i >= 0; i--) {
         *esp -= sizeof(char*);
-        *((char**)*esp) = argv[i];
+        *((char**)*esp) = argv[i];    // here be dragons
     }
 
     // Push the actual stack address of argv onto the stack (this seems kind of silly)
     char** x = *esp;
-    printf("argv is at %p\n", x);
     *esp -= sizeof(char*);
     *((char***)*esp) = x;
 
@@ -363,7 +358,6 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     *esp -= sizeof(void*);
     memset(*esp, 0, sizeof(void*));
 
-    hex_dump(0, *esp, 64, true);
 
     /* Start address. */
     *eip = (void (*)(void)) ehdr.e_entry;
