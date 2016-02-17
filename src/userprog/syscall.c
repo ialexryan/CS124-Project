@@ -6,7 +6,7 @@
 
 static void syscall_handler(struct intr_frame *);
 
-#define ARG_N(f, n, type) (*(type *)((uint32_t *)((f)->esp) + (n)))
+#define ARG_N(f, type, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
 #define ARG_0(f, type) ARG_N(f, type, 0)
 #define ARG_1(f, type) ARG_N(f, type, 1)
 #define ARG_2(f, type) ARG_N(f, type, 2)
