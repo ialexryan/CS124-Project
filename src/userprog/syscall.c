@@ -13,6 +13,13 @@ static void syscall_handler(struct intr_frame *);
 // Transforms a variadic list of types to a variadic list of arguments from the stack frame
 #define SYS_ARGS(f, ...) MAP(ARG_N, MAP(UNCURRY3, PREPEND(f, ENUMERATE(MAP(ARG_TYPE, __VA_ARGS__)))))
 
+// Declares a function that extracts the arguments from the stack and calls the correct handler
+#define DECLARE_SYSCALL_HANDLER(NUMBER, FUNC_NAME, RETURN, ...) \
+void _sys_ ## FUNC_NAME(struct intr_frame *f) { \
+	RETURN result = CONCAT(sys_, FUNC_NAME)(SYS_ARGS(f, __VA_ARGS__)); \
+	f->eax = (uint32_t)result; \
+};
+
 #define HOLD_SYSCALL(TYPE_NAME, HANDLER_NAME, ...) void sys_ ## HANDLER_NAME(struct intr_frame *f);
 SYSCALL_LIST
 #undef HOLD_SYSCALL
@@ -31,103 +38,102 @@ void syscall_handler(struct intr_frame *f) {
     handlers[syscall_id](f);
 }
 
-void sys_halt(struct intr_frame *f UNUSED) {
+void sys_halt(void) {
     printf("sys_halt!\n");
     thread_exit();
 }
 
-void sys_exit(struct intr_frame *f UNUSED) {
-//    int status = ARG_0(
+void sys_exit(int status) {
     printf("sys_exit!\n");
     thread_exit();
 }
 
-void sys_exec(struct intr_frame *f UNUSED) {
+pid_t sys_exec(const char *file) {
     printf("sys_exec!\n");
     thread_exit();
 }
 
-void sys_wait(struct intr_frame *f UNUSED) {
+int sys_wait(pid_t pid) {
     printf("sys_wait!\n");
     thread_exit();
 }
 
-void sys_create(struct intr_frame *f UNUSED) {
+bool sys_create(const char *file, unsigned initial_size) {
     printf("sys_create!\n");
     thread_exit();
 }
 
-void sys_remove(struct intr_frame *f UNUSED) {
+bool sys_remove (const char *file) {
     printf("sys_remove!\n");
     thread_exit();
 }
 
-void sys_open(struct intr_frame *f UNUSED) {
+int sys_open (const char *file) {
     printf("sys_open!\n");
     thread_exit();
 }
 
-void sys_filesize(struct intr_frame *f UNUSED) {
+int sys_filesize(int fd) {
     printf("sys_filesize!\n");
     thread_exit();
 }
 
-void sys_read(struct intr_frame *f UNUSED) {
+int sys_read(int fd, void *buffer, unsigned size) {
     printf("sys_read!\n");
     thread_exit();
 }
 
-void sys_write(struct intr_frame *f UNUSED) {
+int sys_write(int fd, const void *buffer, unsigned size) {
     printf("sys_write!\n");
     thread_exit();
 }
 
-void sys_seek(struct intr_frame *f UNUSED) {
+void sys_seek(int fd, unsigned position) {
     printf("sys_seek!\n");
     thread_exit();
 }
 
-void sys_tell(struct intr_frame *f UNUSED) {
+unsigned sys_tell(int fd) {
     printf("sys_tell!\n");
     thread_exit();
 }
 
-void sys_close(struct intr_frame *f UNUSED) {
+void sys_close(int fd) {
     printf("sys_close!\n");
     thread_exit();
 }
 
-void sys_mmap(struct intr_frame *f UNUSED) {
+mapid_t sys_mmap(int fd, void *addr) {
     printf("sys_mmap!\n");
     thread_exit();
 }
 
-void sys_munmap(struct intr_frame *f UNUSED) {
+void sys_munmap(mapid_t mapid) {
     printf("sys_munmap!\n");
     thread_exit();
 }
 
-void sys_chdir(struct intr_frame *f UNUSED) {
+bool sys_chdir(const char *dir) {
     printf("sys_chdir!\n");
     thread_exit();
 }
 
-void sys_mkdir(struct intr_frame *f UNUSED) {
+bool sys_mkdir(const char *dir) {
     printf("sys_mkdir!\n");
     thread_exit();
 }
 
-void sys_readdir(struct intr_frame *f UNUSED) {
+bool sys_readdir(int fd, char name[READDIR_MAX_LEN + 1]) {
     printf("sys_readdir!\n");
     thread_exit();
 }
 
-void sys_isdir(struct intr_frame *f UNUSED) {
+bool sys_isdir(int fd) {
     printf("sys_isdir!\n");
     thread_exit();
 }
 
-void sys_inumber(struct intr_frame *f UNUSED) {
+int sys_inumber(int fd) {
     printf("sys_inumber!\n");
     thread_exit();
 }
