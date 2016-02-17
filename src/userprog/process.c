@@ -26,33 +26,20 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
     returns.  Returns the new process's thread id, or TID_ERROR if the thread
     cannot be created. */
 tid_t process_execute(const char *file_name) {
-    char *pn_copy;
+    char *fn_copy;
     tid_t tid;
 
-    /* Split file_name by spaces */
-    /* strtok_r needs a mutable copy of the argument */
-    char file_name_copy[128];
-    strlcpy(file_name_copy, file_name, 128);  // This is nice and safe, should truncate at 127 chars
-
-    char *saveptr;
-    char *program_name, *foo;
-    program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program we want
-    printf("Program name is: %s\n", program_name);
-    while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, it's an assignment
-        printf("Found token : %s\n", foo);
-    }
-
-    /* Make a copy of program_name.
+    /* Make a copy of file_name.
        Otherwise there's a race between the caller and load(). */
-    pn_copy = palloc_get_page(0);
-    if (pn_copy == NULL)
+    fn_copy = palloc_get_page(0);
+    if (fn_copy == NULL)
         return TID_ERROR;
-    strlcpy(pn_copy, program_name, PGSIZE);
+    strlcpy(fn_copy, file_name, PGSIZE);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(program_name, PRI_DEFAULT, start_process, pn_copy);
+    tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR)
-        palloc_free_page(pn_copy);
+        palloc_free_page(fn_copy);
     return tid;
 }
 
@@ -211,6 +198,16 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     bool success = false;
     int i;
 
+    /* Split file_name by spaces */
+    /* strtok_r needs a mutable copy of the argument */
+    char file_name_copy[128];
+    strlcpy(file_name_copy, file_name, 128);  // This is nice and safe, should truncate at 127 chars
+
+    char *saveptr;
+    char *program_name, *foo;
+    program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program name
+    printf("Program name is: %s\n", program_name);  // TODO remove
+
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();
     if (t->pagedir == NULL)
@@ -218,7 +215,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     process_activate();
 
     /* Open executable file. */
-    file = filesys_open(file_name);
+    file = filesys_open(program_name);
     if (file == NULL) {
         printf("load: %s: open failed\n", file_name);
         goto done;
@@ -229,7 +226,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
         memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 ||
         ehdr.e_machine != 3 || ehdr.e_version != 1 ||
         ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024) {
-        printf("load: %s: error loading executable\n", file_name);
+        printf("load: %s: error loading executable\n", program_name);
         goto done;
     }
 
@@ -295,6 +292,10 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     /* Set up stack. */
     if (!setup_stack(esp))
         goto done;
+
+    while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, this line is an assignment
+        printf("Found token : %s\n", foo);  // TODO remove
+    }
 
     /* Start address. */
     *eip = (void (*)(void)) ehdr.e_entry;
