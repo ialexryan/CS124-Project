@@ -34,8 +34,8 @@ void sys_halt(struct intr_frame *f UNUSED) {
 
 void sys_exit(struct intr_frame *f UNUSED) {
     ARG(int, status UNUSED, f, 1);
-    printf("sys_exit!\n");
-    thread_exit();
+    // TODO: Set exit status
+    thread_exit()
 }
 
 void sys_exec(struct intr_frame *f UNUSED) {
