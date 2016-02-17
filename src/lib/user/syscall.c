@@ -72,7 +72,7 @@
         })
 
 void halt(void) {
-    syscall0(SYS_HALT);
+//    syscall0(SYS_HALT);
     NOT_REACHED();
 }
 
@@ -142,7 +142,10 @@ bool mkdir(const char *dir) {
 }
 
 bool readdir(int fd, char name[READDIR_MAX_LEN + 1]) {
-    return syscall2(SYS_READDIR, fd, name);
+    (void)name;
+    (void)fd;
+//    return syscall2(SYS_READDIR, fd, name);
+    return false;
 }
 
 bool isdir(int fd) {
