@@ -11,7 +11,7 @@
 // Macro keeps enum and handler array in sync
 // http://rcr.io/words/syncing-enums-arrays.html
 #define SYSCALL_TYPES \
-    syscall_type(SYS_HALT,     sys_halt)     /*!< Halt the operating system. */             \
+    syscall_type(SYS_HALT, sys_halt, syscall_types(bool, const char *file))     /*!< Halt the operating system. */             \
     syscall_type(SYS_EXIT,     sys_exit)     /*!< Terminate this process. */                \
     syscall_type(SYS_EXEC,     sys_exec)     /*!< Start another process. */                 \
     syscall_type(SYS_WAIT,     sys_wait)     /*!< Wait for a child process to die. */       \

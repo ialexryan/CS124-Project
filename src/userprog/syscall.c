@@ -6,6 +6,12 @@
 
 static void syscall_handler(struct intr_frame *);
 
+#define ARG_N(f, n, type) (*(type *)((uint32_t *)((f)->esp) + (n)))
+#define ARG_0(f, type) ARG_N(f, type, 0)
+#define ARG_1(f, type) ARG_N(f, type, 1)
+#define ARG_2(f, type) ARG_N(f, type, 2)
+#define ARG_3(f, type) ARG_N(f, type, 3)
+
 #define syscall_type(type, handler) void handler(struct intr_frame *f);
 SYSCALL_TYPES
 #undef syscall_type
@@ -18,9 +24,10 @@ void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void syscall_handler(struct intr_frame *f UNUSED) {
+void syscall_handler(struct intr_frame *f) {
     // Run system call
-    handlers[f->eax](f);
+    uint32_t syscall_id = ARG_0(f, uint32_t);
+    handlers[syscall_id](f);
 }
 
 void sys_halt(struct intr_frame *f UNUSED) {
@@ -29,6 +36,7 @@ void sys_halt(struct intr_frame *f UNUSED) {
 }
 
 void sys_exit(struct intr_frame *f UNUSED) {
+//    int status = ARG_0(
     printf("sys_exit!\n");
     thread_exit();
 }
