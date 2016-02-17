@@ -26,33 +26,20 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
     returns.  Returns the new process's thread id, or TID_ERROR if the thread
     cannot be created. */
 tid_t process_execute(const char *file_name) {
-    char *pn_copy;
+    char *fn_copy;
     tid_t tid;
 
-    /* Split file_name by spaces */
-    /* strtok_r needs a mutable copy of the argument */
-    char file_name_copy[128];
-    strlcpy(file_name_copy, file_name, 128);  // This is nice and safe, should truncate at 127 chars
-
-    char *saveptr;
-    char *program_name, *foo;
-    program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program we want
-    printf("Program name is: %s\n", program_name);
-    while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, it's an assignment
-        printf("Found token : %s\n", foo);
-    }
-
-    /* Make a copy of program_name.
+    /* Make a copy of file_name.
        Otherwise there's a race between the caller and load(). */
-    pn_copy = palloc_get_page(0);
-    if (pn_copy == NULL)
+    fn_copy = palloc_get_page(0);
+    if (fn_copy == NULL)
         return TID_ERROR;
-    strlcpy(pn_copy, program_name, PGSIZE);
+    strlcpy(fn_copy, file_name, PGSIZE);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(program_name, PRI_DEFAULT, start_process, pn_copy);
+    tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR)
-        palloc_free_page(pn_copy);
+        palloc_free_page(fn_copy);
     return tid;
 }
 
@@ -211,6 +198,16 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     bool success = false;
     int i;
 
+    /* Split file_name by spaces */
+    /* strtok_r needs a mutable copy of the argument */
+    char file_name_copy[128];
+    strlcpy(file_name_copy, file_name, 128);  // This is nice and safe, should truncate at 127 chars
+
+    char *saveptr;
+    char *program_name, *foo;
+    program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program name
+    printf("Program name is: %s\n", program_name);  // TODO remove
+
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();
     if (t->pagedir == NULL)
@@ -218,7 +215,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     process_activate();
 
     /* Open executable file. */
-    file = filesys_open(file_name);
+    file = filesys_open(program_name);
     if (file == NULL) {
         printf("load: %s: open failed\n", file_name);
         goto done;
@@ -229,7 +226,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
         memcmp(ehdr.e_ident, "\177ELF\1\1\1", 7) || ehdr.e_type != 2 ||
         ehdr.e_machine != 3 || ehdr.e_version != 1 ||
         ehdr.e_phentsize != sizeof(struct Elf32_Phdr) || ehdr.e_phnum > 1024) {
-        printf("load: %s: error loading executable\n", file_name);
+        printf("load: %s: error loading executable\n", program_name);
         goto done;
     }
 
@@ -295,6 +292,72 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     /* Set up stack. */
     if (!setup_stack(esp))
         goto done;
+
+    /* Here's where we tokenize the rest of the command string
+       and push all the arguments onto the stack.
+       The code that follows is horribly impenetrable.
+       Remember that the stack grows downward.
+       Remember esp is a void**.
+       Check out this real, tested example of how our stack will look for
+       "echo -l foo barrr":
+
+        Address	    Name	        Data	    Type
+        0xbffffffb	argv[0][...]	echo\0	    char[5]
+        0xbffffff8	argv[1][...]	-l\0	    char[3]
+        0xbffffff4	argv[2][...]	foo\0	    char[4]
+        0xbfffffee	argv[3][...]	barrr\0	    char[6]
+        0xbfffffec	word-align	    0 0	        uint8_t
+        0xbfffffe8	argv[4]	        0	        char *
+        0xbfffffe4	argv[3]	        0xbfffffee	char *
+        0xbfffffe0	argv[2]      	0xbffffff4	char *
+        0xbfffffdc	argv[1]	        0xbffffff8	char *
+        0xbfffffd8	argv[0]	        0xbffffffb	char *
+        0xbfffffd4	argv	        0xbfffffd8	char **
+        0xbfffffd0	argc	        4	        int
+        0xbfffffcc	return address	0	        void (*) ()
+    */
+
+    int argc = 0;
+    char* argv[96] = {};  // Keep track of where we put all the arguments
+
+    // Push the name of the program on the stack
+    *esp -= strlen(program_name) + 1;  // strlen doesn't count the null-terminator
+    strlcpy(*esp, program_name, strlen(program_name) + 1);
+    argv[0] = (char*)(*esp);
+    argc++;
+
+    // Push each space-separated argument onto the stack
+    while ((foo = strtok_r(NULL, " ", &saveptr))) {  // heads up, this line is an assignment
+        *esp -= strlen(foo) + 1;
+        strlcpy(*esp, foo, strlen(foo) + 1);
+        argv[argc] = (char*)(*esp);
+        argc++;
+    }
+
+    // Pad to word-aligned access
+    int padding_length = (uint32_t)(*esp) % 4;
+    *esp -= padding_length;
+    memset(*esp, 0, padding_length);
+
+    // Loop over everything in argv __from last to first__, pushing it into the stack
+    for (i = argc; i >= 0; i--) {
+        *esp -= sizeof(char*);
+        *((char**)*esp) = argv[i];    // here be dragons
+    }
+
+    // Push the actual stack address of argv onto the stack (this seems kind of silly)
+    char** x = *esp;
+    *esp -= sizeof(char*);
+    *((char***)*esp) = x;
+
+    // Push argc onto the stack
+    *esp -= sizeof(int);
+    *((int*)*esp) = argc;
+
+    // And finally, push a "return address" (unused) of zero
+    *esp -= sizeof(void*);
+    memset(*esp, 0, sizeof(void*));
+
 
     /* Start address. */
     *eip = (void (*)(void)) ehdr.e_entry;
@@ -417,7 +480,7 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
-            *esp = PHYS_BASE - 12;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
+            *esp = PHYS_BASE;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
         else
             palloc_free_page(kpage);
     }
