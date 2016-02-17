@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "devices/shutdown.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -28,8 +29,7 @@ void syscall_handler(struct intr_frame *f) {
 }
 
 void sys_halt(struct intr_frame *f UNUSED) {
-    printf("sys_halt!\n");
-    thread_exit();
+    shutdown_power_off();
 }
 
 void sys_exit(struct intr_frame *f UNUSED) {
