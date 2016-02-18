@@ -46,6 +46,7 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
    Alex Ryan - 24
+   Jaden Geller - 20
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -118,6 +119,15 @@ piping and redirecting output.
 added struct file* file_descriptors[MAX_OPEN_FILES];  to struct thread
 This fixed-size array keeps track of pointers to all the thread's open files.
 File descriptors are indices into this array.
+
+Thread:
+struct list children; // List of the children
+struct list_elem child_elem; // Member of children list
+struct semaphore dying; // Signaled when child dies. Waited on by parent.
+struct semaphore loaded; // Signaled when exec thread loads. Waited on by parent.
+bool orphan; // Set on children by parent when it dies. Indicates if thread is orphan.
+int load_status;
+int exit_status;
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a

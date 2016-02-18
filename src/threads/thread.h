@@ -113,7 +113,7 @@ struct thread {
     struct semaphore dying;
     struct semaphore loaded;
     bool orphan;
-    bool load_status;
+    int load_status;
     bool sleeping;                       /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
     struct list_elem allelem;           /*!< List element for all threads list. */
