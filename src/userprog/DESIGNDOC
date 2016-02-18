@@ -179,6 +179,14 @@ reap them when the parent dies.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+In cases where the same check would need to be performed in every
+function, such as checking that a pointer passed in by a user is valid,
+we abstracted the check away into a function like verify_user_pointer_is_good().
+
+In cases where the checks were different depending on what the function does -
+like the fact that you shouldn't read from stdout or write to stdin - we
+left the checks in the body of the function.
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
