@@ -1,9 +1,11 @@
 #include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 #include "devices/shutdown.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "devices/input.h"
@@ -29,6 +31,10 @@ struct file* get_file_pointer_for_fd(int fd) {
     } else {
         return thread_current()->file_descriptors[fd];
     }
+}
+
+bool verify_user_pointer_is_good(void* p) {
+    return is_user_vaddr(p) && pagedir_get_page(thread_current()->pagedir, p) != NULL;
 }
 
 void syscall_init(void) {
@@ -88,6 +94,11 @@ void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
 
+    if (!verify_user_pointer_is_good(file)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
+
     if (file == NULL) {
         thread_current()->exit_status = -1;
         thread_exit();
@@ -103,6 +114,11 @@ void sys_remove(struct intr_frame *f) {
 
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
+
+    if (!verify_user_pointer_is_good(file_name)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
 
     if (file_name == NULL) {
         RET(-1, f);
@@ -146,6 +162,11 @@ void sys_read(struct intr_frame *f ) {
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
 
+    if (!verify_user_pointer_is_good(buffer)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
+
     if (fd == STDOUT_FILENO) {
         RET(-1, f);
         return;
@@ -174,6 +195,11 @@ void sys_write(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
+
+    if (!verify_user_pointer_is_good(buffer)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
 
     if (fd == STDIN_FILENO) {
         RET(-1, f);
