@@ -119,6 +119,9 @@ struct thread {
     struct list_elem elem;              /*!< List element. */
     /**@}*/
 
+    /*! Used in syscall.c */
+    struct file* file_descriptors[32];
+
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
     /**@{*/
