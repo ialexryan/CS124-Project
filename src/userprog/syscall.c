@@ -59,6 +59,11 @@ void sys_exit(struct intr_frame *f) {
 
 void sys_exec(struct intr_frame *f) {
     ARG(const char *, file UNUSED, f, 1);
+    if (!verify_user_pointer_is_good(file)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
+    
     tid_t child_tid = process_execute(file);
 
     // If a thread could not be created, fail.
