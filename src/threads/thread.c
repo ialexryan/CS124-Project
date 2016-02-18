@@ -281,6 +281,18 @@ static void thread_orphan(void) {
         thread->orphan = true;
         if (thread->status == THREAD_WAITING) {
             thread->status = THREAD_DYING;
+        }
+    }
+}
+
+/*! Reaps all the children of the passed in thread. */
+static void thread_reap(struct thread *parent) {
+    struct list *children = &(parent->children);
+    
+    struct list_elem *elem;
+    for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
+        struct thread* thread = list_entry(elem, struct thread, child_elem);
+        if (thread->status == THREAD_DYING) {
             thread_murder(thread);
         }
     }
@@ -651,6 +663,7 @@ void thread_schedule_tail(struct thread *prev) {
     if (prev != NULL && prev->status == THREAD_DYING &&
         prev != initial_thread) {
         ASSERT(prev != cur);
+        thread_reap(prev);
         thread_murder(prev);
     }
 }
