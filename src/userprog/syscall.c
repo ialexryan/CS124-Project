@@ -56,6 +56,7 @@ void sys_exec(struct intr_frame *f) {
     // Make sure the child successfully loaded.
     struct list *children = &(thread_current()->children);
     struct list_elem *elem;
+    // Find child.
     for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
         struct thread* thread = list_entry(elem, struct thread, child_elem);
         if (thread->tid == child_tid) {
