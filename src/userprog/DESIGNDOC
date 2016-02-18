@@ -51,10 +51,8 @@ which parts.
    descriptions to 25-30 words or less.
    Alex - argument parsing and passing (setting up the stack), implement
    file descriptors + all filesystem-related syscalls
-
-Jaden Geller focused on the implementation of exit, exec, and wait which
-involved large changes to the thread struct. Jaden also implemented the
-system call architecture.
+   Jaden - implementation of exit, exec, and wait, implementation of the
+   system call handling architecture.
 
                            ARGUMENT PASSING
                            ================
@@ -117,9 +115,17 @@ piping and redirecting output.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+added struct file* file_descriptors[MAX_OPEN_FILES];  to struct thread
+This fixed-size array keeps track of pointers to all the thread's open files.
+File descriptors are indices into this array.
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+File descriptors are only unique to a certain thread. When a process
+opens a file, the pointer to the created struct file is stored in the
+file_descriptors array on its thread struct and the index in that array
+is the file descriptor.
 
 ---- ALGORITHMS ----
 
@@ -184,6 +190,9 @@ reap them when the parent dies.
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
+It involves a hard limit on the number of open files that a process can have.
+Making file descriptors global instead of per-process could also possibly
+be useful for cross-process communication. 
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
