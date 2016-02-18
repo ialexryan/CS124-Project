@@ -23,6 +23,14 @@ SYSCALL_TYPES
 void (*handlers[])(struct intr_frame *) = { SYSCALL_TYPES };
 #undef syscall_type
 
+struct file* get_file_pointer_for_fd(int fd) {
+    if (fd < 0 || fd >= MAX_OPEN_FILES || fd == STDIN_FILENO || fd == STDOUT_FILENO) {
+        return NULL;
+    } else {
+        return thread_current()->file_descriptors[fd];
+    }
+}
+
 void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
@@ -79,7 +87,13 @@ void sys_wait(struct intr_frame *f) {
 void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
-    RET(filesys_create(file, initial_size), f);
+
+    if (file == NULL) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    } else {
+        RET(filesys_create(file, initial_size), f);
+    }
 }
 
 void sys_remove(struct intr_frame *f) {
@@ -90,6 +104,11 @@ void sys_remove(struct intr_frame *f) {
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
 
+    if (file_name == NULL) {
+        RET(-1, f);
+        return;
+    }
+
     struct file* x = filesys_open(file_name);
 
     if (x == NULL) {
@@ -99,7 +118,7 @@ void sys_open(struct intr_frame *f) {
         // and put the pointer to the struct file there.
         int i;
         for (i = 2; i < 32; i++) {  // start at i = 2 b/c first two are reserved for stdin/out
-            if (thread_current()->file_descriptors[i] == NULL) {
+            if (get_file_pointer_for_fd(i) == NULL) {
                 thread_current()->file_descriptors[i] = x;
                 break;
             }
@@ -117,7 +136,7 @@ void sys_filesize(struct intr_frame *f) {
     ASSERT(fd != STDIN_FILENO);  // These have no size
     ASSERT(fd != STDOUT_FILENO);
 
-    struct file* x = thread_current()->file_descriptors[fd];
+    struct file* x = get_file_pointer_for_fd(fd);
     ASSERT(x != NULL);
     RET(file_length(x), f);
 }
@@ -127,7 +146,10 @@ void sys_read(struct intr_frame *f ) {
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
 
-    ASSERT(fd != STDOUT_FILENO); // Doesn't make sense to read from STDOUT
+    if (fd == STDOUT_FILENO) {
+        RET(-1, f);
+        return;
+    }
 
     if (fd == STDIN_FILENO) {
         input_init();
@@ -139,9 +161,12 @@ void sys_read(struct intr_frame *f ) {
         }
         RET(size, f);
     } else {
-        struct file *x = thread_current()->file_descriptors[fd];
-        ASSERT(x != NULL);
-        RET(file_read(x, buffer, size), f);
+        struct file *x = get_file_pointer_for_fd(fd);
+        if (x == NULL) {
+            RET(-1, f);
+        } else {
+            RET(file_read(x, buffer, size), f);
+        }
     }
 }
 
@@ -150,15 +175,21 @@ void sys_write(struct intr_frame *f) {
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
 
-    ASSERT(fd != STDIN_FILENO); // Doesn't make sense to write to STDIN
+    if (fd == STDIN_FILENO) {
+        RET(-1, f);
+        return;
+    }
 
     if (fd == STDOUT_FILENO) {
         putbuf(buffer, size);
         RET(size, f);
     } else {
-        struct file *x = thread_current()->file_descriptors[fd];
-        ASSERT(x != NULL);
-        RET(file_write(x, buffer, size), f);
+        struct file *x = get_file_pointer_for_fd(fd);
+        if (x == NULL) {
+            RET(-1, f);
+        } else {
+            RET(file_write(x, buffer, size), f);
+        }
     }
 }
 
@@ -169,7 +200,7 @@ void sys_seek(struct intr_frame *f) {
     ASSERT(fd != STDIN_FILENO);
     ASSERT(fd != STDOUT_FILENO);
 
-    struct file *x = thread_current()->file_descriptors[fd];
+    struct file *x = get_file_pointer_for_fd(fd);
     ASSERT(x != NULL);
 
     file_seek(x, position);
@@ -181,7 +212,7 @@ void sys_tell(struct intr_frame *f) {
     ASSERT(fd != STDIN_FILENO);
     ASSERT(fd != STDOUT_FILENO);
 
-    struct file *x = thread_current()->file_descriptors[fd];
+    struct file *x = get_file_pointer_for_fd(fd);
     ASSERT(x != NULL);
 
     RET(file_tell(x), f);
@@ -190,11 +221,12 @@ void sys_tell(struct intr_frame *f) {
 void sys_close(struct intr_frame *f) {
     ARG(int, fd, f, 1);
 
-    ASSERT(fd != STDIN_FILENO);
-    ASSERT(fd != STDOUT_FILENO);
+    if (fd == STDIN_FILENO || fd == STDOUT_FILENO) {
+        return;
+    }
 
-    struct file *x = thread_current()->file_descriptors[fd];
-    ASSERT(x != NULL);
+    struct file *x = get_file_pointer_for_fd(fd);
+    if (x == NULL) { return; }
 
     thread_current()->file_descriptors[fd] = NULL;
     file_close(x);
