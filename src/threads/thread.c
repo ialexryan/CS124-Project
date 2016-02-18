@@ -178,6 +178,9 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     /* Initialize thread. */
     init_thread(t, name, priority);
     tid = t->tid = allocate_tid();
+    
+    /* Add this cute new baby thread to its parent's family scrapbook <3 */
+    list_push_front(&(thread_current()->children), &(t->child_elem));
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame(t, sizeof *kf);
@@ -260,21 +263,51 @@ tid_t thread_tid(void) {
     return thread_current()->tid;
 }
 
+/*! Orpans all the children of the current thread. */
+static void thread_orphan(void) {
+    struct list *children = &(thread_current()->children);
+
+    struct list_elem *elem;
+    for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
+        struct thread* thread = list_entry(elem, struct thread, child_elem);
+        thread->orphan = true;
+    }
+}
+
 /*! Deschedules the current thread and destroys it.  Never
     returns to the caller. */
 void thread_exit(void) {
+    struct thread *thread = thread_current();
     ASSERT(!intr_context());
+    ASSERT(thread != initial_thread);
 
 #ifdef USERPROG
     process_exit();
 #endif
-
+    
     /* Remove thread from all threads list, set our status to dying,
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
     intr_disable();
     list_remove(&thread_current()->allelem);
-    thread_current()->status = THREAD_DYING;
+    
+    if (thread->orphan) {
+        // It must have never been waited on.
+        ASSERT(thread->dying.value == 0);
+        
+        // Thread will commit suicide!
+        thread->status = THREAD_DYING;
+    } else {
+        // Let the parent know that it's dead.
+        sema_up(&(thread->dying));
+        
+        // Thread is waiting for it's parent to murder it!
+        thread->status = THREAD_WAITING;
+    }
+    
+    // Let the children know that it's dead.
+    thread_orphan();
+    
     schedule();
     NOT_REACHED();
 }
@@ -528,9 +561,13 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->priority = priority;
     t->blocked_by_lock = NULL;
     list_init(&(t->donors));
+    list_init(&(t->children));
+    sema_init(&(t->dying), 0);
     t->ticks_until_wake = 0;
     t->sleeping = false;
     t->magic = THREAD_MAGIC;
+    t->exit_status = -1;
+    t->orphan = false;
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);
