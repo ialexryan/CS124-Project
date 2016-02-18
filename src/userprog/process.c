@@ -224,6 +224,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     char *saveptr;
     char *program_name, *foo;
     program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program name
+    strlcpy(t->name, program_name, 16);
 
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();

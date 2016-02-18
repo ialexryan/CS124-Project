@@ -80,13 +80,11 @@ void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
     RET(filesys_create(file, initial_size), f);
-    printf("sys_create!\n");  //TODO: remove
 }
 
 void sys_remove(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     RET(filesys_remove(file), f);
-    printf("sys_remove!\n");  //TODO: remove
 }
 
 void sys_open(struct intr_frame *f) {
@@ -122,8 +120,6 @@ void sys_filesize(struct intr_frame *f) {
     struct file* x = thread_current()->file_descriptors[fd];
     ASSERT(x != NULL);
     RET(file_length(x), f);
-
-    printf("sys_filesize!\n");
 }
 
 void sys_read(struct intr_frame *f ) {
@@ -177,8 +173,6 @@ void sys_seek(struct intr_frame *f) {
     ASSERT(x != NULL);
 
     file_seek(x, position);
-
-    printf("sys_seek!\n");
 }
 
 void sys_tell(struct intr_frame *f) {
@@ -191,8 +185,6 @@ void sys_tell(struct intr_frame *f) {
     ASSERT(x != NULL);
 
     RET(file_tell(x), f);
-
-    printf("sys_tell!\n");
 }
 
 void sys_close(struct intr_frame *f) {
