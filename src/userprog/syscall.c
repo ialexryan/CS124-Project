@@ -58,8 +58,8 @@ void sys_exit(struct intr_frame *f) {
 }
 
 void sys_exec(struct intr_frame *f) {
-    ARG(const char *, file UNUSED, f, 1);
-    if (!verify_user_pointer_is_good(file)) {
+    ARG(const char *, file, f, 1);
+    if (!verify_user_pointer_is_good((void *)file)) {
         thread_current()->exit_status = -1;
         thread_exit();
     }
@@ -100,7 +100,7 @@ void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
 
-    if (!verify_user_pointer_is_good(file)) {
+    if (!verify_user_pointer_is_good((void *)file)) {
         thread_current()->exit_status = -1;
         thread_exit();
     }
@@ -121,7 +121,7 @@ void sys_remove(struct intr_frame *f) {
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
 
-    if (!verify_user_pointer_is_good(file_name)) {
+    if (!verify_user_pointer_is_good((void* *)file_name)) {
         thread_current()->exit_status = -1;
         thread_exit();
     }
@@ -168,7 +168,7 @@ void sys_read(struct intr_frame *f ) {
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
 
-    if (!verify_user_pointer_is_good(buffer)) {
+    if (!verify_user_pointer_is_good((void *)buffer)) {
         thread_current()->exit_status = -1;
         thread_exit();
     }
@@ -202,7 +202,7 @@ void sys_write(struct intr_frame *f) {
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
 
-    if (!verify_user_pointer_is_good(buffer)) {
+    if (!verify_user_pointer_is_good((void *)buffer)) {
         thread_current()->exit_status = -1;
         thread_exit();
     }
