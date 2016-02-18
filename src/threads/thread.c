@@ -296,6 +296,8 @@ void thread_exit(void) {
     process_exit();
 #endif
     
+    printf("%s:exit(%d)\n", thread->name, thread->exit_status);
+    
     /* Remove thread from all threads list, set our status to dying,
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
@@ -318,8 +320,6 @@ void thread_exit(void) {
         // Thread is waiting for it's parent to murder it!
         thread->status = THREAD_WAITING;
     }
-    
-    printf("%s:exit(%d)\n", thread->name, thread->exit_status);
     
     schedule();
     NOT_REACHED();
