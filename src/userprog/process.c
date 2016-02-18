@@ -224,7 +224,6 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     char *saveptr;
     char *program_name, *foo;
     program_name = strtok_r(file_name_copy, " ", &saveptr);  // First token is the program name
-    printf("Program name is: %s\n", program_name);  // TODO remove
 
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();
@@ -498,7 +497,7 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
-            *esp = PHYS_BASE;  // TODO this is extremely temporary. Placeholder for argc/argv/return addr
+            *esp = PHYS_BASE;
         else
             palloc_free_page(kpage);
     }
