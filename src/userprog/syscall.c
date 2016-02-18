@@ -9,6 +9,7 @@ static void syscall_handler(struct intr_frame *);
 
 #define GET_ARG(type, f, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
 #define ARG(type, name, f, n) type name = GET_ARG(type, f, n)
+#define RET(value, f) ((f)->eax = (uint32_t)(value))
 
 #define syscall_type(type, handler) void handler(struct intr_frame *f);
 SYSCALL_TYPES
@@ -35,7 +36,8 @@ void sys_halt(struct intr_frame *f UNUSED) {
 void sys_exit(struct intr_frame *f UNUSED) {
     ARG(int, status UNUSED, f, 1);
     // TODO: Set exit status
-    thread_exit()
+    printf("sys_exit! status: %i\n", status);
+    thread_exit();
 }
 
 void sys_exec(struct intr_frame *f UNUSED) {
