@@ -291,6 +291,9 @@ void thread_exit(void) {
     intr_disable();
     list_remove(&thread_current()->allelem);
     
+    // Let the children know that it's dead.
+    thread_orphan();
+    
     if (thread->orphan) {
         // It must have never been waited on.
         ASSERT(thread->dying.value == 0);
@@ -304,9 +307,6 @@ void thread_exit(void) {
         // Thread is waiting for it's parent to murder it!
         thread->status = THREAD_WAITING;
     }
-    
-    // Let the children know that it's dead.
-    thread_orphan();
     
     schedule();
     NOT_REACHED();
