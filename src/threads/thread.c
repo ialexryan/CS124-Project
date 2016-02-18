@@ -141,6 +141,13 @@ void thread_tick(void) {
         intr_yield_on_return();
 }
 
+static void thread_murder(struct thread *thread) {
+    ASSERT(thread != NULL);
+    ASSERT(thread->status == THREAD_DYING);
+    ASSERT(thread != initial_thread);
+    palloc_free_page(thread);
+}
+
 /*! Prints thread statistics. */
 void thread_print_stats(void) {
     printf("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
@@ -272,6 +279,10 @@ static void thread_orphan(void) {
     for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
         struct thread* thread = list_entry(elem, struct thread, child_elem);
         thread->orphan = true;
+        if (thread->status == THREAD_WAITING) {
+            thread->status = THREAD_DYING;
+            thread_murder(thread);
+        }
     }
 }
 
@@ -291,7 +302,7 @@ void thread_exit(void) {
     intr_disable();
     list_remove(&thread_current()->allelem);
     
-    // Let the children know that it's dead.
+    // Let the children know that it's dead, and clean up any dead ones.
     thread_orphan();
     
     if (thread->orphan) {
@@ -640,7 +651,7 @@ void thread_schedule_tail(struct thread *prev) {
     if (prev != NULL && prev->status == THREAD_DYING &&
         prev != initial_thread) {
         ASSERT(prev != cur);
-        palloc_free_page(prev);
+        thread_murder(prev);
     }
 }
 
