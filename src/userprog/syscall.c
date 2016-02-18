@@ -53,24 +53,28 @@ void sys_wait(struct intr_frame *f) {
 void sys_create(struct intr_frame *f) {
     ARG(const char *, file UNUSED, f, 1);
     ARG(unsigned, initial_size UNUSED, f, 2);
+    //return filesys_create(file, initial_size);
     printf("sys_create!\n");
     thread_exit();
 }
 
 void sys_remove(struct intr_frame *f) {
     ARG(const char *, file UNUSED, f, 1);
+    //return filesys_remove(file);
     printf("sys_remove!\n");
     thread_exit();
 }
 
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file UNUSED, f, 1);
+    //return filesys_open(file);
     printf("sys_open!\n");
     thread_exit();
 }
 
 void sys_filesize(struct intr_frame *f) {
     ARG(int, fb UNUSED, f, 1);
+    file_length()
     printf("sys_filesize!\n");
     thread_exit();
 }
