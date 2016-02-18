@@ -308,6 +308,8 @@ void thread_exit(void) {
         thread->status = THREAD_WAITING;
     }
     
+    printf("%s:exit(%d)\n", thread->name, thread->exit_status);
+    
     schedule();
     NOT_REACHED();
 }
