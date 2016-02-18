@@ -108,7 +108,9 @@ struct thread {
     struct list children;                 /*!< This is the list of children of the current thread. */
     struct list_elem child_elem;        /*!< List elem for being a member of the children list of the parent thread. */
     struct semaphore dying;
+    struct semaphore loaded;
     bool orphan;
+    bool load_status;
     bool sleeping;                       /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
     struct list_elem allelem;           /*!< List element for all threads list. */

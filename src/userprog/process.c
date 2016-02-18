@@ -57,10 +57,19 @@ static void start_process(void *file_name_) {
     success = load(file_name, &if_.eip, &if_.esp);
 
     /* If load failed, quit. */
+    struct thread *thread = thread_current();
     palloc_free_page(file_name);
-    if (!success)
+    if (!success) {
+        // Let parent know that we failed loading.
+        thread->load_status = -1;
+        sema_up(&(thread->loaded));
         thread_exit();
-
+    } else {
+        // Let parent know that we're done loading.
+        thread->load_status = 0;
+        sema_up(&(thread->loaded));
+    }
+    
     /* Start the user process by simulating a return from an
        interrupt, implemented by intr_exit (in
        threads/intr-stubs.S).  Because intr_exit takes all of its

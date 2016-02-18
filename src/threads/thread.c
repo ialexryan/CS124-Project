@@ -562,11 +562,13 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->blocked_by_lock = NULL;
     list_init(&(t->donors));
     list_init(&(t->children));
+    sema_init(&(t->loaded), 0);
     sema_init(&(t->dying), 0);
     t->ticks_until_wake = 0;
     t->sleeping = false;
     t->magic = THREAD_MAGIC;
     t->exit_status = -1;
+    t->load_status = -1;
     t->orphan = false;
 
     old_level = intr_disable();
