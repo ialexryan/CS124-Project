@@ -9,12 +9,14 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "synch.h"
 
 /*! States in a thread's life cycle. */
 enum thread_status {
     THREAD_RUNNING,     /*!< Running thread. */
     THREAD_READY,       /*!< Not running but ready to run. */
     THREAD_BLOCKED,     /*!< Waiting for an event to trigger. */
+    THREAD_WAITING,     /*!< Waiting for parent to reap it. */
     THREAD_DYING        /*!< About to be destroyed. */
 };
 
@@ -93,6 +95,7 @@ struct thread {
     /**@{*/
     tid_t tid;                          /*!< Thread identifier. */
     enum thread_status status;          /*!< Thread state. */
+    int exit_status;
     char name[16];                      /*!< Name (for debugging purposes). */
     uint8_t *stack;                     /*!< Saved stack pointer. */
     int nice;
@@ -102,6 +105,10 @@ struct thread {
     struct lock* blocked_by_lock;       /*!< Waiting on this lock in order to continue. */
     struct list donors;                 /*!< This is a list of threads that are waiting on locks we currently hold. */
     struct list_elem donor_elem;        /*!< List elem for being a member of donors lists (like above). */
+    struct list children;                 /*!< This is the list of children of the current thread. */
+    struct list_elem child_elem;        /*!< List elem for being a member of the children list of the parent thread. */
+    struct semaphore dying;
+    bool orphan;
     bool sleeping;                       /*!< True if this thread is sleeping, false otherwise. */
     int64_t ticks_until_wake;           /*!< Number of remaining ticks until thread wakes up again. */
     struct list_elem allelem;           /*!< List element for all threads list. */

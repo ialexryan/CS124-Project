@@ -4,6 +4,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "process.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -34,9 +35,8 @@ void sys_halt(struct intr_frame *f UNUSED) {
 }
 
 void sys_exit(struct intr_frame *f) {
-    ARG(int, status UNUSED, f, 1);
-    // TODO: Set exit status
-    printf("sys_exit! status: %i\n", status);
+    ARG(int, status, f, 1);
+    thread_current()->exit_status = status;
     thread_exit();
 }
 
@@ -47,9 +47,8 @@ void sys_exec(struct intr_frame *f) {
 }
 
 void sys_wait(struct intr_frame *f) {
-    ARG(int, pid UNUSED, f, 1);
-    printf("sys_wait!\n");
-    thread_exit();
+    ARG(int, pid, f, 1);
+    RET(process_wait(pid), f);
 }
 
 void sys_create(struct intr_frame *f) {

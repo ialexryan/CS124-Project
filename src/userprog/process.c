@@ -76,10 +76,19 @@ static void start_process(void *file_name_) {
     If TID is invalid or if it was not a child of the calling process, or if
     process_wait() has already been successfully called for the given TID,
     returns -1 immediately, without waiting.
+*/
+int process_wait(tid_t child_tid) {
+    struct list *children = &(thread_current()->children);
 
-    This function will be implemented in problem 2-2.  For now, it does
-    nothing. */
-int process_wait(tid_t child_tid UNUSED) {
+    struct list_elem *elem;
+    for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
+        struct thread* thread = list_entry(elem, struct thread, child_elem);
+        if (thread->tid == child_tid) {
+            list_remove(elem);
+            sema_down(&(thread->dying));
+            return thread->exit_status;
+        }
+    }
     return -1;
 }
 
