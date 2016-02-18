@@ -308,16 +308,16 @@ void thread_exit(void) {
     process_exit();
 #endif
     
-    printf("%s: exit(%d)\n", thread->name, thread->exit_status);
-    
     /* Remove thread from all threads list, set our status to dying,
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
     intr_disable();
     list_remove(&thread_current()->allelem);
-    
+
     // Let the children know that it's dead, and clean up any dead ones.
     thread_orphan();
+    
+    printf("%s: exit(%d)\n", thread->name, thread->exit_status);
     
     if (thread->orphan) {
         // It must have never been waited on.
@@ -328,7 +328,7 @@ void thread_exit(void) {
     } else {
         // Let the parent know that it's dead.
         sema_up(&(thread->dying));
-        
+
         // Thread is waiting for it's parent to murder it!
         thread->status = THREAD_WAITING;
     }

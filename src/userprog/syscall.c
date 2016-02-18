@@ -54,7 +54,7 @@ void sys_exit(struct intr_frame *f) {
 void sys_exec(struct intr_frame *f) {
     ARG(const char *, file UNUSED, f, 1);
     tid_t child_tid = process_execute(file);
-    
+
     // If a thread could not be created, fail.
     if (child_tid == TID_ERROR) {
         RET(TID_ERROR, f);
@@ -70,7 +70,8 @@ void sys_exec(struct intr_frame *f) {
         if (thread->tid == child_tid) {
             // Found child! Wait for it to load...
             sema_down(&(thread->loaded));
-            RET(thread->load_status, f);
+            if (thread->load_status == 0) RET(child_tid, f);
+            else RET(-1, f);
             return;
         }
     }
