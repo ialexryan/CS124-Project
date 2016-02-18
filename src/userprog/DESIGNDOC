@@ -133,12 +133,43 @@ reap them when the parent dies.
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+We ensure this with a similar mechanism as the wait implementation.
+Essentially, we have a load_status bool and a loaded semaphore on
+our thread struct, and the caller of exec will sema_down this loaded
+semaphore and the child will sema_up it once it has set the load_status
+code. This way, we know the code will be set once we pass the semaphore,
+so we can check the code and return the correct value.
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+
+When P calls wait(C) before C exits, P will be blocked by C's dying semaphore.
+P will not be unblocked until C sets its exit code and signals its dying
+semaphore. Thus, when P passes the semaphore, the exit code will be set. The
+status of C is set to WAITING and the thread struct for C will be cleaned up
+after its parent C dies.
+
+When P calls wait(C) after C exits, C will have already set its exit code and
+signaled the dying semaphore. Since the semaphore was signaled, P will pass
+right through when it tries to acquire the semaphore, and will be able to
+obtain the exit code on C. Note that C's thread struct is not been deallocated
+since it was not orphaned. Instead, the thread status is set to WAITING and its
+struct will be cleaned up when the parent dies.
+
+When P terminates without waiting before C exits, it will loop over its children
+and reap any that are WAITING automatically. Since C isn't yet WAITING, it will
+not be reaped. Instead, it will be orphaned by setting it's orphan bool to true.
+When C later exits, it will be set to DYING rather than WAITING since it is an
+orphan, so it will be cleaned up.
+
+When P terminates without waiting after C exits, C will be in a WAITING status
+since P might've tried to check its exit code. Since P didn't wait, the resources
+are not cleaned up yet, so on exit P will loop over its WAITING children and reap
+them, cleaning up C's thread struct.
 
 ---- RATIONALE ----
 
