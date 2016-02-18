@@ -44,6 +44,10 @@ which parts.
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
+Jaden Geller focused on the implementation of exit, exec, and wait which
+involved large changes to the thread struct. Jaden also implemented the
+system call architecture.
+
                            ARGUMENT PASSING
                            ================
 
@@ -94,6 +98,19 @@ which parts.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+The wait system call first finds the thread struct for the given process.
+Since each process stores its children, this is done by looping over the
+children until it finds one with the requested id. Once it is found, we
+sema_down the `dying` semaphore which will block if and only if the child
+is still alive. Thus, once we pass, we can assume that the exit code is
+set. Thus, we return the exit status.
+
+If we do not find the requested thread in the list of children, we return
+-1. Note that this will result in duplicate calls to wait returning -1 after
+the first since we remove a thread from the children list after its been
+reaped. Also note that, if any threads are not reaped with wait, we will
+reap them when the parent dies.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
