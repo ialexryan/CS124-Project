@@ -131,6 +131,7 @@ struct thread {
     /*! Owned by userprog/process.c. */
     /**@{*/
     uint32_t *pagedir;                  /*!< Page directory. */
+    struct file *executable_file;       /*!< Open file, for denying writes */
     /**@{*/
 #endif
 

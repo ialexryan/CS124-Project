@@ -106,6 +106,8 @@ void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
 
+    file_close(cur->executable_file);
+
     /* Destroy the current process's page directory and switch back
        to the kernel-only page directory. */
     pd = cur->pagedir;
@@ -238,6 +240,12 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
         printf("load: %s: open failed\n", file_name);
         goto done;
     }
+
+    /* Deny write to executable. Write protection is only enforced
+    for as long as this file stays open, so it has to stay open
+    until the process terminates. */ 
+    file_deny_write(file);
+    t->executable_file = file;
 
     /* Read and verify executable header. */
     if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
@@ -384,7 +392,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
 
 done:
     /* We arrive here whether the load is successful or not. */
-    file_close(file);
+    // file_close(file); This is where we'd close the file if not for denying writes.
     return success;
 }
 
