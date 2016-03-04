@@ -14,7 +14,11 @@
 static void syscall_handler(struct intr_frame *);
 
 #define GET_ARG(type, f, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
-#define ARG(type, name, f, n) type name = GET_ARG(type, f, n)
+#define ARG(type, name, f, n) type name = ({ \
+void *p = ((uint32_t *)((f)->esp) + (n)); \
+verify_user_pointer(p); \
+*(type *)p; \
+})
 #define RET(value, f) ((f)->eax = (uint32_t)(value))
 
 #define syscall_type(type, handler) void handler(struct intr_frame *f);
@@ -25,7 +29,7 @@ SYSCALL_TYPES
 void (*handlers[])(struct intr_frame *) = { SYSCALL_TYPES };
 #undef syscall_type
 
-struct file* get_file_pointer_for_fd(int fd) {
+static struct file* get_file_pointer_for_fd(int fd) {
     if (fd < 0 || fd >= MAX_OPEN_FILES || fd == STDIN_FILENO || fd == STDOUT_FILENO) {
         return NULL;
     } else {
@@ -33,8 +37,15 @@ struct file* get_file_pointer_for_fd(int fd) {
     }
 }
 
-bool verify_user_pointer_is_good(void* p) {
+static bool is_user_pointer_good(void* p) {
     return is_user_vaddr(p) && pagedir_get_page(thread_current()->pagedir, p) != NULL;
+}
+
+static void verify_user_pointer(void* p) {
+    if (!is_user_pointer_good(p)) {
+        thread_current()->exit_status = -1;
+        thread_exit();
+    }
 }
 
 void syscall_init(void) {
@@ -59,10 +70,7 @@ void sys_exit(struct intr_frame *f) {
 
 void sys_exec(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
-    if (!verify_user_pointer_is_good((void *)file)) {
-        thread_current()->exit_status = -1;
-        thread_exit();
-    }
+    verify_user_pointer((void *)file);
     
     tid_t child_tid = process_execute(file);
 
@@ -99,11 +107,7 @@ void sys_wait(struct intr_frame *f) {
 void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
-
-    if (!verify_user_pointer_is_good((void *)file)) {
-        thread_current()->exit_status = -1;
-        thread_exit();
-    }
+    verify_user_pointer((void *)file);
 
     if (file == NULL) {
         thread_current()->exit_status = -1;
@@ -115,16 +119,13 @@ void sys_create(struct intr_frame *f) {
 
 void sys_remove(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
+    verify_user_pointer((void *)file);
     RET(filesys_remove(file), f);
 }
 
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
-
-    if (!verify_user_pointer_is_good((void* *)file_name)) {
-        thread_current()->exit_status = -1;
-        thread_exit();
-    }
+    verify_user_pointer((void *)file_name);
 
     if (file_name == NULL) {
         RET(-1, f);
@@ -167,11 +168,7 @@ void sys_read(struct intr_frame *f ) {
     ARG(int, fd, f, 1);
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-
-    if (!verify_user_pointer_is_good((void *)buffer)) {
-        thread_current()->exit_status = -1;
-        thread_exit();
-    }
+    verify_user_pointer((void *)buffer);
 
     if (fd == STDOUT_FILENO) {
         RET(-1, f);
@@ -201,11 +198,7 @@ void sys_write(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-
-    if (!verify_user_pointer_is_good((void *)buffer)) {
-        thread_current()->exit_status = -1;
-        thread_exit();
-    }
+    verify_user_pointer((void *)buffer);
 
     if (fd == STDIN_FILENO) {
         RET(-1, f);
