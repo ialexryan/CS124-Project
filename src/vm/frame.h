@@ -2,9 +2,11 @@
 #define VM_FRAME_H
 
 #include "threads/palloc.h"
+#include <stdbool.h>
 
 struct frame {
 	void* page;
+    bool swappable;
 };
 
 void frametable_init(void);
