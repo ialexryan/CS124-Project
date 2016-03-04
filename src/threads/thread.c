@@ -328,9 +328,12 @@ void thread_exit(void) {
     } else {
         // Let the parent know that it's dead.
         sema_up(&(thread->dying));
+        ASSERT(thread->dying.value == 1);
 
         // Thread is waiting for it's parent to murder it!
         thread->status = THREAD_WAITING;
+        ASSERT(thread->dying.value == 1);
+        // Asserts are a santiy check that no interrupts occur
     }
     
     schedule();

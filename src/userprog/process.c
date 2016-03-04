@@ -96,8 +96,11 @@ int process_wait(tid_t child_tid) {
             // We found the child thread that we're waiting for!
             list_remove(elem);
             
-            // Wait until this child is dying...
+            // Wait until this child is waiting to die...
             sema_down(&(child->dying));
+            
+            // Give it permission to die. We don't need it ever again.
+            child->status = THREAD_DYING;
             
             // Now its exit_status is set, so return it.
             return child->exit_status;
