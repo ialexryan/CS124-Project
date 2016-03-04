@@ -99,12 +99,14 @@ int process_wait(tid_t child_tid) {
             // Wait until this child is waiting to die...
             sema_down(&(child->dying));
             
+            int exit_status = child->exit_status;
+            
             // Let it die. It just wants the misery to end.
             child->status = THREAD_DYING;
             thread_murder(child);
             
             // Now its exit_status is set, so return it.
-            return child->exit_status;
+            return exit_status;
         }
     }
     return -1;
