@@ -141,7 +141,8 @@ void thread_tick(void) {
         intr_yield_on_return();
 }
 
-static void thread_murder(struct thread *thread) {
+/* Destroys the thread struct of a dying thread. */
+void thread_murder(struct thread *thread) {
     ASSERT(thread != NULL);
     ASSERT(thread->status == THREAD_DYING);
     ASSERT(thread != initial_thread);
