@@ -43,7 +43,6 @@ static bool is_user_pointer_good(void* p) {
 
 static void verify_user_pointer(void* p) {
     if (!is_user_pointer_good(p)) {
-        thread_current()->exit_status = -1;
         thread_exit();
     }
 }
@@ -110,7 +109,6 @@ void sys_create(struct intr_frame *f) {
     verify_user_pointer((void *)file);
 
     if (file == NULL) {
-        thread_current()->exit_status = -1;
         thread_exit();
     } else {
         RET(filesys_create(file, initial_size), f);
