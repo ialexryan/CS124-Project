@@ -91,11 +91,16 @@ int process_wait(tid_t child_tid) {
 
     struct list_elem *elem;
     for (elem = list_begin(children); elem != list_end(children); elem = list_next(elem)) {
-        struct thread* thread = list_entry(elem, struct thread, child_elem);
-        if (thread->tid == child_tid) {
+        struct thread* child = list_entry(elem, struct thread, child_elem);
+        if (child->tid == child_tid) {
+            // We found the child thread that we're waiting for!
             list_remove(elem);
-            sema_down(&(thread->dying));
-            return thread->exit_status;
+            
+            // Wait until this child is dying...
+            sema_down(&(child->dying));
+            
+            // Now its exit_status is set, so return it.
+            return child->exit_status;
         }
     }
     return -1;
