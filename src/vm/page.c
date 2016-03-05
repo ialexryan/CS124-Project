@@ -24,17 +24,18 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
     return hash_entry(e, struct page_info, hash_elem);
 }
 
-void pagetable_load_page_if_needed(struct page_info *page UNUSED) {
+// This function should only be called by the page fault handler
+void pagetable_load_page(struct page_info *page) {
     switch (page->storage_location) {
-        case frame_location:
-            // Already loaded!
+        case FRAME_LOCATION:
+            PANIC("ERROR: trying to load a page that is already in memory.");
             break;
             
-        case swap_location:
+        case SWAP_LOCATION:
             PANIC("TODO: Loading from swap location is not yet supported.");
             break;
             
-        case disk_location:
+        case DISK_LOCATION:
             PANIC("TODO: Loading from disk location is not yet supported.");
             break;
             
@@ -43,17 +44,18 @@ void pagetable_load_page_if_needed(struct page_info *page UNUSED) {
     }
 }
 
-void pagetable_unload_page_if_needed(struct page_info *page) {
+// This function should only be called by the frametable code 
+void pagetable_evict_page(struct page_info *page) {
     switch (page->storage_location) {
-        case frame_location:
-            PANIC("TODO: Unloading frame is not yet supported.");
+        case FRAME_LOCATION:
+            PANIC("TODO: Evicting a frame is not yet supported.");
             break;
             
-        case swap_location:
-            // Already unloaded
+        case SWAP_LOCATION:
+            PANIC("ERROR: trying to evict a page that is in swap");
             break;
             
-        case disk_location:
+        case DISK_LOCATION:
             PANIC("It doesn't make sense to unload a disk location.");
             
         default:

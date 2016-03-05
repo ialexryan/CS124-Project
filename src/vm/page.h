@@ -10,9 +10,9 @@ struct page_info {
     struct hash_elem hash_elem;
     
     enum {
-        frame_location,
-        swap_location,
-        disk_location
+        FRAME_LOCATION,
+        SWAP_LOCATION,
+        DISK_LOCATION
     } storage_location;
     
     union {
