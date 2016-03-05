@@ -55,8 +55,8 @@ void *frametable_create_page(enum palloc_flags flags) {
         // Yay, we still have physical memory left!
         // Let's do any initialization needed for the frame_info entry.
         
-        // Nothing to do yet...
-        // struct frame_info *frame = frametable_frame_for_page(page);
+        struct frame_info *frame = frametable_frame_for_page(page);
+        frame->is_user_page = true;
     }
     
     // Make sure that oure page_for_frame and frame_for_page functions work properly.

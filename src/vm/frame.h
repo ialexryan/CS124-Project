@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 struct frame_info {
-    int TEMP_PLACEHOLDER_REMOVE_ME_LATER;
+    bool is_user_page;
 };
 
 void frametable_init(void);
