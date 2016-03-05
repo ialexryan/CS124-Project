@@ -3,9 +3,10 @@
 
 #include <hash.h>
 #include <stdbool.h>
+#include "filesys/file.h"
 
 struct page_info {
-    void *page_address; // key
+    void *virtual_address; // key
     struct hash_elem hash_elem;
     
     enum {
@@ -22,7 +23,7 @@ struct page_info {
             int index;
         } swap_storage;
         struct {
-            
+            struct file *file;
         } disk_storage;
     };
 };
@@ -30,6 +31,7 @@ struct page_info {
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 unsigned page_hash(const struct hash_elem *e, void *aux);
 
-struct page_info *pagetable_info_for_page(struct hash *pagetable, void *page);
+struct page_info *pagetable_info_for_address(struct hash *pagetable, void *address);
+void pagetable_load_page_if_needed(struct page_info *page);
 
 #endif /* vm/page.h */
