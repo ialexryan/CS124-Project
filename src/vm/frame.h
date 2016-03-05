@@ -6,6 +6,10 @@
 
 struct frame_info {
     bool is_user_page;
+    
+    // TODO: Add pointer to supplementry page table entry
+    //       so that we can update it when we evict it from
+    //       physical memory.
 };
 
 void frametable_init(void);

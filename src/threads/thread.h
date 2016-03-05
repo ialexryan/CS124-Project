@@ -126,6 +126,10 @@ struct thread {
 
     /*! Used in syscall.c */
     struct file* file_descriptors[MAX_OPEN_FILES];
+    
+    // TODO: Add hash map for supplemental page table, keyed by virtual page address.
+    //       The entries in the hash table will be malloc'd, and will store information
+    //       about where the page is actually stored. Ex: RAM, swap, [later] mmap, files, etc.
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
