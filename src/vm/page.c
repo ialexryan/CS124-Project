@@ -1,6 +1,8 @@
 #include "vm/page.h"
 #include <hash.h>
 #include <debug.h>
+#include <string.h>
+#include "threads/malloc.h"
 
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
     struct page_info *page_a = hash_entry(a, struct page_info, hash_elem);
@@ -60,3 +62,14 @@ void pagetable_unload_page_if_needed(struct page_info *page) {
             NOT_REACHED();
     }
 }
+
+void pagetable_install_disk_page(struct hash *pagetable, struct file *file) {
+    struct page_info *page = malloc(sizeof(struct page_info));
+    memset(page, 0, sizeof(*page));
+
+    page->storage_location = disk_location;
+    page->disk_storage.file = file;
+    
+    hash_insert(pagetable, &page->hash_elem);
+}
+

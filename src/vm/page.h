@@ -35,4 +35,6 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
 void pagetable_load_page_if_needed(struct page_info *page);
 void pagetable_unload_page_if_needed(struct page_info *page);
 
+void pagetable_install_disk_page(struct hash *pagetable, struct file *file);
+
 #endif /* vm/page.h */
