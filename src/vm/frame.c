@@ -11,14 +11,10 @@
 // currently in physical memory, not pages that have been swapped out.
 struct frame_info *frametable;
 
-static inline int div_up(int x, int y) {
-    return x / y + (x % y > 0);
-}
-
 void frametable_init(void) {
 	// init_ram_pages is the number of 4KB pages aka frames in physical RAM
 	int frametable_size_in_bytes = init_ram_pages * sizeof(struct frame_info);
-	int frametable_size_in_pages = div_up(frametable_size_in_bytes, PGSIZE);
+	int frametable_size_in_pages = pg_count(frametable_size_in_bytes);
 	frametable = palloc_get_multiple(0, frametable_size_in_pages);
 }
 

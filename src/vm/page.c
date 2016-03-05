@@ -63,13 +63,57 @@ void pagetable_evict_page(struct page_info *page) {
     page->loaded = false;
 }
 
-void pagetable_install_disk_page(struct hash *pagetable, struct file *file) {
-    struct page_info *page = malloc(sizeof(struct page_info));
-    memset(page, 0, sizeof(*page));
-
-    page->type = FILE_PAGE;
-    page->file = file;
+void pagetable_install_file_page(struct hash *pagetable, struct file *file) {
+    // Reopen the file
+    struct file *reopened_file;
+    if (!(reopened_file = file_reopen(file))) {
+        PANIC("TODO: Handle file failed to open more elegantly.");
+    }
     
-    hash_insert(pagetable, &page->hash_elem);
+    // Compute how many pages are necessary to store the file
+    int num_pages = pg_count(file_length(file));
+    
+    // Loop over the pages in reverse setting up pointers to the next page
+    int i;
+    struct page_info *successor = NULL;
+    for (i = num_pages - 1; i >= 0; i--) {
+        
+        // Allocate a page
+        struct page_info *page = malloc(sizeof(struct page_info));
+        memset(page, 0, sizeof(*page));
+
+        // Initialize the properties
+        page->type = FILE_PAGE;
+        page->file_info.file = reopened_file;
+        page->file_info.index = i;
+        page->file_info.next = successor;
+        
+        // Insert the page into the pagetable
+        hash_insert(pagetable, &page->hash_elem);
+        
+        // TODO: Install page in virtual memory here.
+        
+        // Update the successor variable
+        successor = page;
+    }
+}
+
+void pagetable_uninstall_file_page(struct page_info *page) {
+    ASSERT(page->type == FILE_PAGE);
+    
+    // Write the file back to disk
+    if (page->loaded) pagetable_evict_page(page);
+    
+    // Close the file descriptor
+    file_close(page->file_info.file);
+    
+    // Loop over the list of pages and free them
+    struct page_info *previous = NULL;
+    do {
+        previous = page;
+        page = page->file_info.next;
+        free(previous);
+        // TODO: Uninstall page from virtual memory here.
+    } while (page != NULL);
 }
 

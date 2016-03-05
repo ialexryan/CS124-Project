@@ -4,6 +4,7 @@
 #include <hash.h>
 #include <stdbool.h>
 #include "filesys/file.h"
+#include "threads/vaddr.h"
 
 struct page_info {
     // Requirements for member of hash map
@@ -20,10 +21,16 @@ struct page_info {
     // Data used for loading the page
     union {
         /* ALLOCATED_PAGE */
-        int swap_index; // -1 represents all zero page
+        struct {
+            int swap_index; // -1 represents all zero page
+        } allocated_info;
         
         /* FILE_PAGE */
-        struct file *file;
+        struct {
+            struct file *file;
+            struct page_info *next;
+            int index;
+        } file_info;
     };
 };
 
@@ -34,6 +41,7 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
 void pagetable_load_page(struct page_info *page);
 void pagetable_evict_page(struct page_info *page);
 
-void pagetable_install_disk_page(struct hash *pagetable, struct file *file);
+void pagetable_install_file_page(struct hash *pagetable, struct file *file);
+void pagetable_uninstall_file_page(struct page_info *page);
 
 #endif /* vm/page.h */
