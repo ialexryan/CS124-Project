@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 struct page_info {
-    void *address; // key
+    void *page_address; // key
     struct hash_elem hash_elem;
     
     enum {
@@ -29,5 +29,7 @@ struct page_info {
 
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 unsigned page_hash(const struct hash_elem *e, void *aux);
+
+struct page_info *pagetable_info_for_page(struct hash *pagetable, void *page);
 
 #endif /* vm/page.h */
