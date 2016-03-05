@@ -25,5 +25,21 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
 }
 
 void pagetable_load_page_if_needed(struct page_info *page UNUSED) {
-    
+    switch (page->storage_location) {
+        case frame_location:
+            // Already loaded!
+            break;
+            
+        case swap_location:
+            PANIC("Loading from swap location is not yet supported.");
+            break;
+            
+        case disk_location:
+            PANIC("Loading from disk location is not yet supported.");
+            break;
+            
+        default:
+            NOT_REACHED();
+            break;
+    }
 }
