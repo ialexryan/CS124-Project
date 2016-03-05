@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "vm/page.h"
 
 /*! Number of page faults processed. */
 static long long page_fault_cnt;
@@ -136,8 +137,8 @@ static void page_fault(struct intr_frame *f) {
 
     if (not_present) {
       // The problem was a not-present page! let's handle that
-      
-      kill(f);
+      kill(f);  // TODO: remove
+      pagetable_load_page(pagetable_info_for_address(&(thread_current()->page_table), fault_addr));
     } else {
       // The problem was an access rights violation. Kill the process.
       printf("Page fault at %p: rights violation error %s page in %s context.\n",
