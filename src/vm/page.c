@@ -28,49 +28,47 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
 
 // This function should only be called by the page fault handler
 void pagetable_load_page(struct page_info *page) {
-    switch (page->storage_location) {
-        case FRAME_LOCATION:
-            PANIC("ERROR: trying to load a page that is already in memory.");
-            break;
-            
-        case SWAP_LOCATION:
+    ASSERT(!page->loaded);
+    
+    switch (page->type) {
+        case ALLOCATED_PAGE:
             PANIC("TODO: Loading from swap location is not yet supported.");
             break;
             
-        case DISK_LOCATION:
-            PANIC("TODO: Loading from disk location is not yet supported.");
+        case FILE_PAGE:
+            PANIC("TODO: Loading from file is not yet supported.");
             break;
             
         default:
             NOT_REACHED();
     }
+    page->loaded = true;
 }
 
 // This function should only be called by the frametable code 
 void pagetable_evict_page(struct page_info *page) {
-    switch (page->storage_location) {
-        case FRAME_LOCATION:
-            PANIC("TODO: Evicting a frame is not yet supported.");
+    ASSERT(page->loaded);
+
+    switch (page->type) {
+        case ALLOCATED_PAGE:
+            PANIC("TODO: Swapping a page is not yet supported.");
             break;
             
-        case SWAP_LOCATION:
-            PANIC("ERROR: trying to evict a page that is in swap");
-            break;
-            
-        case DISK_LOCATION:
-            PANIC("It doesn't make sense to unload a disk location.");
+        case FILE_PAGE:
+            PANIC("Writing a file page to disk is not yet supported.");
             
         default:
             NOT_REACHED();
     }
+    page->loaded = false;
 }
 
 void pagetable_install_disk_page(struct hash *pagetable, struct file *file) {
     struct page_info *page = malloc(sizeof(struct page_info));
     memset(page, 0, sizeof(*page));
 
-    page->storage_location = DISK_LOCATION;
-    page->disk_storage.file = file;
+    page->type = FILE_PAGE;
+    page->file = file;
     
     hash_insert(pagetable, &page->hash_elem);
 }

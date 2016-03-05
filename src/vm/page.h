@@ -6,25 +6,24 @@
 #include "filesys/file.h"
 
 struct page_info {
+    // Requirements for member of hash map
     void *virtual_address; // key
     struct hash_elem hash_elem;
     
+    // The type of page
     enum {
-        FRAME_LOCATION,
-        SWAP_LOCATION,
-        DISK_LOCATION
-    } storage_location;
-    
+        ALLOCATED_PAGE,
+        FILE_PAGE
+    } type;
+    bool loaded;
+
+    // Data used for loading the page
     union {
-        struct {
-            void *memory;
-        } frame_storage;
-        struct {
-            int index;
-        } swap_storage;
-        struct {
-            struct file *file;
-        } disk_storage;
+        /* ALLOCATED_PAGE */
+        int swap_index; // -1 represents all zero page
+        
+        /* FILE_PAGE */
+        struct file *file;
     };
 };
 
