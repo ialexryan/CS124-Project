@@ -4,8 +4,10 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
 
-// frametable is a palloc'ed region of memory big enough to hold
-// as many frame structs as there are frames in physical memory
+// `frametable` is a palloc'ed region of memory big enough to hold
+// as many frame_info structs as there are frames in physical memory.
+// Note that the frametable only contains info about the pages that are
+// currently in physical memory, not pages that have been swapped out.
 struct frame_info *frametable;
 
 static inline int div_up(int x, int y) {
