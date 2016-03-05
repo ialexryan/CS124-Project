@@ -69,7 +69,7 @@ void pagetable_install_disk_page(struct hash *pagetable, struct file *file) {
     struct page_info *page = malloc(sizeof(struct page_info));
     memset(page, 0, sizeof(*page));
 
-    page->storage_location = disk_location;
+    page->storage_location = DISK_LOCATION;
     page->disk_storage.file = file;
     
     hash_insert(pagetable, &page->hash_elem);
