@@ -64,12 +64,31 @@ void pagetable_load_page(struct page_info *page) {
                 PANIC("TODO: Loading from swap location is not yet supported.");
             }
             // Install the page into virtual memory
-            bool success = install_page(page->virtual_address, address, 0);
+            bool success = install_page(page->virtual_address, address, true); // TODO: Writable?
             ASSERT(success);
             break;
         }
         case FILE_PAGE: {
-            PANIC("TODO: Loading from file is not yet supported.");
+            // Create frame page
+            uint8_t *address = frametable_create_page(0);
+            
+            // Compute the proper file offset to start reading from
+            int file_index = page->file_info.file_index;
+            off_t file_offset = file_index * PGSIZE;
+            
+            // Read the file into the newly created page
+            off_t bytes_read = file_read_at(page->file_info.file, address, PGSIZE, file_offset);
+            
+            // If the file was smaller than a page, zero out the rest of the page
+            if (bytes_read < PGSIZE) {
+                memset((void *)((char *)address + bytes_read), 0, PGSIZE - bytes_read);
+            }
+            
+            /* Add the page to the process's address space. */
+            if (!install_page(page->virtual_address, address, true)) { // TODO: Writable?
+                PANIC("TODO: Handle unable to install page.");
+            }
+            
             break;
         }
         default:
