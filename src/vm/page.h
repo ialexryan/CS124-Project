@@ -10,9 +10,9 @@ struct page_info {
     struct hash_elem hash_elem;
     
     enum {
-        frame_location,
-        swap_location,
-        disk_location
+        FRAME_LOCATION,
+        SWAP_LOCATION,
+        DISK_LOCATION
     } storage_location;
     
     union {
@@ -32,8 +32,8 @@ bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 unsigned page_hash(const struct hash_elem *e, void *aux);
 
 struct page_info *pagetable_info_for_address(struct hash *pagetable, void *address);
-void pagetable_load_page_if_needed(struct page_info *page);
-void pagetable_unload_page_if_needed(struct page_info *page);
+void pagetable_load_page(struct page_info *page);
+void pagetable_evict_page(struct page_info *page);
 
 void pagetable_install_disk_page(struct hash *pagetable, struct file *file);
 
