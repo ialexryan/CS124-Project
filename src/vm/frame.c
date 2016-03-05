@@ -6,7 +6,7 @@
 
 // frametable is a palloc'ed region of memory big enough to hold
 // as many frame structs as there are frames in physical memory
-struct frame *frametable;
+struct frame_info *frametable;
 
 static inline int div_up(int x, int y) {
     return x / y + (x % y > 0);
@@ -14,25 +14,53 @@ static inline int div_up(int x, int y) {
 
 void frametable_init(void) {
 	// init_ram_pages is the number of 4KB pages aka frames in physical RAM
-	int frametable_size_in_bytes = init_ram_pages * sizeof(struct frame);
+	int frametable_size_in_bytes = init_ram_pages * sizeof(struct frame_info);
 	int frametable_size_in_pages = div_up(frametable_size_in_bytes, PGSIZE);
 	frametable = palloc_get_multiple(0, frametable_size_in_pages);
 }
 
-// Given a page, returns the corresponding frame entry.
-static struct frame *frametable_get_frame_for_page(void *page) {
-    ASSERT((int)vtop(page) % PGSIZE == 0);
-    unsigned int frametable_index = (int)vtop(page) / PGSIZE;
+static struct frame_info *frametable_frame_for_page(void *page) {
+    // Get the physical address and make sure the
+    // given page actually falls on a page boundary
+    uintptr_t physical_address = vtop(page);
+    ASSERT((int)physical_address % PGSIZE == 0);
+    
+    // Compute the frametable index from the physical address
+    // and return the appropriate frame.
+    int index = physical_address / PGSIZE;
+    return &frametable[index];
+}
 
-    return &frametable[frametable_index];
+static void *frametable_page_for_frame(struct frame_info *frame) {
+    // Get the index and make sure its valid
+    int frame_index = frame - frametable;
+    ASSERT(frame_index >= 0 && frame_index < (int)init_ram_pages);
+    
+    // Compute the physical address for a given index
+    // and convert to a virtual address
+    uintptr_t physical_address = frame_index * PGSIZE;
+    return ptov(physical_address);
 }
 
 // Creates a new page with the given flags, returning a pointer to this page.
-void *frametable_get_page(enum palloc_flags flags) {
+void *frametable_create_page(enum palloc_flags flags) {
     void *page = palloc_get_page(flags | PAL_USER);
-    if (page == NULL) { PANIC("frametable_get_page: out of pages!!"); }
+    if (page == NULL) {
+        // We're out of space!! Oh noes!!!!!!
+        // TODO: Do some swapping, probs.
+        PANIC("frametable_get_page: out of pages!!");
+    } else {
+        // Yay, we still have physical memory left!
+        // Let's do any initialization needed for the frame_info entry.
+        
+        // Nothing to do yet...
+        // struct frame_info *frame = frametable_frame_for_page(page);
+    }
     
-    struct frame *f = frametable_get_frame_for_page(page);
-	f->page = page;
-	return page;
+    // Make sure that oure page_for_frame and frame_for_page functions work properly.
+    // No particular reason to be here, but where else :)?
+    ASSERT(page == frametable_page_for_frame(frametable_frame_for_page(page)));
+    
+    return page;
 }
+

@@ -4,12 +4,11 @@
 #include "threads/palloc.h"
 #include <stdbool.h>
 
-struct frame {
-	void* page;
-    bool swappable;
+struct frame_info {
+    int TEMP_PLACEHOLDER_REMOVE_ME_LATER;
 };
 
 void frametable_init(void);
-void* frametable_get_page(enum palloc_flags flags);
+void *frametable_create_page(enum palloc_flags flags);
 
 #endif /* vm/frame.h */
