@@ -33,5 +33,6 @@ unsigned page_hash(const struct hash_elem *e, void *aux);
 
 struct page_info *pagetable_info_for_address(struct hash *pagetable, void *address);
 void pagetable_load_page_if_needed(struct page_info *page);
+void pagetable_unload_page_if_needed(struct page_info *page);
 
 #endif /* vm/page.h */

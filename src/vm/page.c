@@ -31,15 +31,32 @@ void pagetable_load_page_if_needed(struct page_info *page UNUSED) {
             break;
             
         case swap_location:
-            PANIC("Loading from swap location is not yet supported.");
+            PANIC("TODO: Loading from swap location is not yet supported.");
             break;
             
         case disk_location:
-            PANIC("Loading from disk location is not yet supported.");
+            PANIC("TODO: Loading from disk location is not yet supported.");
             break;
             
         default:
             NOT_REACHED();
+    }
+}
+
+void pagetable_unload_page_if_needed(struct page_info *page) {
+    switch (page->storage_location) {
+        case frame_location:
+            PANIC("TODO: Unloading frame is not yet supported.");
             break;
+            
+        case swap_location:
+            // Already unloaded
+            break;
+            
+        case disk_location:
+            PANIC("It doesn't make sense to unload a disk location.");
+            
+        default:
+            NOT_REACHED();
     }
 }
