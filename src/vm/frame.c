@@ -42,7 +42,7 @@ static void *page_for_frame(struct frame_info *frame) {
 }
 
 static struct frame_info* choose_frame_for_eviction(void) {
-    // TODO
+    PANIC("choose_frame_for_eviction: unimplemented!!");
 }
 
 // Creates a new page with the given flags, returning a pointer to this page.

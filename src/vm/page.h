@@ -6,6 +6,8 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 
+#define SWAP_INDEX_UNINITIALIZED -1
+
 struct page_info {
     // Requirements for member of hash map
     void *virtual_address; // key
@@ -22,14 +24,14 @@ struct page_info {
     union {
         /* ALLOCATED_PAGE */
         struct {
-            int swap_index; // -1 represents all zero page
+            int swap_index;
         } allocated_info;
         
         /* FILE_PAGE */
         struct {
             struct file *file;
             struct page_info *next;
-            int index;
+            int file_index;
         } file_info;
     };
 };
@@ -41,7 +43,9 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable, void *addre
 void pagetable_load_page(struct page_info *page);
 void pagetable_evict_page(struct page_info *page);
 
-void pagetable_install_file_page(struct hash *pagetable, struct file *file);
+void pagetable_install_file_page(struct hash *pagetable, struct file *file, void *address);
 void pagetable_uninstall_file_page(struct page_info *page);
+
+void pagetable_allocate_page(struct hash *pagetable, void *address);
 
 #endif /* vm/page.h */
