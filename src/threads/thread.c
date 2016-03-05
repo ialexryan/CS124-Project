@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -97,7 +98,7 @@ void thread_init(void) {
     lock_init(&tid_lock);
     list_init(&ready_list);
     list_init(&all_list);
-
+    
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread();
     init_thread(initial_thread, "main", PRI_DEFAULT);
@@ -187,6 +188,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     /* Initialize thread. */
     init_thread(t, name, priority);
     tid = t->tid = allocate_tid();
+    hash_init(&(t->page_table), page_hash, page_less, NULL);
     
     /* Add this cute new baby thread to its parent's family scrapbook <3 */
     list_push_front(&(thread_current()->children), &(t->child_elem));

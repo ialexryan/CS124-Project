@@ -9,6 +9,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <hash.h>
 #include "synch.h"
 
 /*! States in a thread's life cycle. */
@@ -127,9 +128,9 @@ struct thread {
     /*! Used in syscall.c */
     struct file* file_descriptors[MAX_OPEN_FILES];
     
-    // TODO: Add hash map for supplemental page table, keyed by virtual page address.
-    //       The entries in the hash table will be malloc'd, and will store information
-    //       about where the page is actually stored. Ex: RAM, swap, [later] mmap, files, etc.
+    // Supplemental page table, keyed by virtual page address.
+    // Note that it is illegal to access this structure on the initial thread.
+    struct hash page_table;
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
