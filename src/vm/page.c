@@ -93,6 +93,9 @@ void pagetable_evict_page(struct page_info *page) {
         default:
             NOT_REACHED();
     }
+    
+    // Uninstall page from virtual memory here
+    
     page->loaded = false;
 }
 
@@ -125,8 +128,6 @@ void pagetable_install_file_page(struct hash *pagetable, struct file *file, void
         // Insert the page into the pagetable
         hash_insert(pagetable, &page->hash_elem);
         
-        // TODO: Install page in virtual memory here.
-        
         // Update the successor variable
         successor = page;
     }
@@ -147,7 +148,6 @@ void pagetable_uninstall_file_page(struct page_info *page) {
         previous = page;
         page = page->file_info.next;
         free(previous);
-        // TODO: Uninstall page from virtual memory here.
     } while (page != NULL);
 }
 
