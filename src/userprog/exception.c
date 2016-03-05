@@ -134,14 +134,17 @@ static void page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
-    /* To implement virtual memory, delete the rest of the function
-       body, and replace it with code that brings in the page to
-       which fault_addr refers. */
-    printf("Page fault at %p: %s error %s page in %s context.\n",
-           fault_addr,
-           not_present ? "not present" : "rights violation",
-           write ? "writing" : "reading",
-           user ? "user" : "kernel");
-    kill(f);
+    if (not_present) {
+      // The problem was a not-present page! let's handle that
+      
+      kill(f);
+    } else {
+      // The problem was an access rights violation. Kill the process.
+      printf("Page fault at %p: rights violation error %s page in %s context.\n",
+       fault_addr,
+       write ? "writing" : "reading",
+       user ? "user" : "kernel");
+      kill(f);
+    }
 }
 
