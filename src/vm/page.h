@@ -6,8 +6,6 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 
-#define SWAP_INDEX_UNINITIALIZED -1
-
 // Supplementary page info associated with a page telling us
 // how to initialize, load, and evict it.
 struct page_info {
