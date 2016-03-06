@@ -23,6 +23,7 @@ bool page_less(const struct hash_elem *a,
 
 unsigned page_hash(const struct hash_elem *e, void *aux UNUSED) {
     struct page_info *page = hash_entry(e, struct page_info, hash_elem);
+    
     return hash_bytes(&page->virtual_address, sizeof(page->virtual_address));
 }
 
@@ -40,7 +41,7 @@ struct page_info *pagetable_info_for_address(struct hash *pagetable,
     lookup_entry.virtual_address = rounded_address;
     
     // Get the page_info associated with the given page.
-    struct hash_elem *e = hash_find(pagetable, (void *)&lookup_entry);
+    struct hash_elem *e = hash_find(pagetable, &lookup_entry.hash_elem);
     if (e == NULL) {
         return NULL;
     } else {
@@ -216,10 +217,10 @@ static void _pagetable_install_page(struct hash *pagetable,
     
     // Final setup
     page->state = UNINITIALIZED_STATE;
-    
+        
     // Insert the page into the pagetable
-    ASSERT(hash_insert(pagetable, &page->hash_elem) == NULL);
-    ASSERT(pagetable_info_for_address(pagetable, page->virtual_address) == page);
+    struct hash_elem *existing = hash_insert(pagetable, &page->hash_elem);
+    ASSERT(existing == NULL); // Make sure the item isn't already here.
 }
 
 // MARK: Segment Mapping
