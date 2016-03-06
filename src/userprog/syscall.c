@@ -245,7 +245,8 @@ void sys_close(struct intr_frame *f) {
 void sys_mmap(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(void *, address, f, 2);
-
+    struct hash *pagetable = &thread_current()->pagetable;
+    
     // Make sure the file descriptor is not STDIN or STDOUT
     if (fd == STDIN_FILENO || fd == STDOUT_FILENO) RET(-1, f);
     
@@ -255,13 +256,14 @@ void sys_mmap(struct intr_frame *f) {
     // Make sure address is on a page boundary
     if (pg_ofs(address) != 0) RET(-1, f);
     
+    // Make sure address isn't already mapped
+    struct page_info *existing = pagetable_info_for_address(pagetable, address);
+    if (existing) RET(-1, f);
+    
     struct file *file = get_file_pointer_for_fd(fd);
     if (file == NULL) RET(-1, f);
     else {
-        pagetable_install_file(&thread_current()->pagetable,
-                               file,
-                               true, // TODO: Writable?
-                               address);
+        pagetable_install_file(pagetable, file, true, address);
         ASSERT((int)address > 0); // Using address as the identifier
         RET(address, f);
     }
