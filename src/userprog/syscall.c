@@ -61,10 +61,14 @@ void sys_halt(struct intr_frame *f UNUSED) {
     shutdown_power_off();
 }
 
-void sys_exit(struct intr_frame *f) {
-    ARG(int, status, f, 1);
+void sys_exit_helper(int status) {
     thread_current()->exit_status = status;
     thread_exit();
+}
+
+void sys_exit(struct intr_frame *f) {
+    ARG(int, status, f, 1);
+    sys_exit_helper(status);
 }
 
 void sys_exec(struct intr_frame *f) {

@@ -1,30 +1,14 @@
 #include "vm/page.h"
 #include <hash.h>
 #include <debug.h>
+#include <stdio.h>
 #include <string.h>
 #include "threads/malloc.h"
-#include "userprog/pagedir.h"
-#include "threads/thread.h"
 #include "threads/palloc.h"
+#include "threads/thread.h"
+#include "userprog/pagedir.h"
 #include "vm/frame.h"
-
-/*! Adds a mapping from user virtual address UPAGE to kernel
-    virtual address KPAGE to the page table.
-    If WRITABLE is true, the user process may modify the page;
-    otherwise, it is read-only.
-    UPAGE must not already be mapped.
-    KPAGE should probably be a page obtained from the user pool
-    with palloc_get_page().
-    Returns true on success, false if UPAGE is already mapped or
-    if memory allocation fails. */
-static bool install_page(void *upage, void *kpage, bool writable) {
-    struct thread *t = thread_current();
-
-    /* Verify that there's not already a page at that virtual
-       address, then map our page there. */
-    return (pagedir_get_page(t->pagedir, upage) == NULL &&
-            pagedir_set_page(t->pagedir, upage, kpage, writable));
-}
+#include "vm/swap.h"
 
 // MARK: Page Table Element
 
@@ -44,15 +28,24 @@ unsigned page_hash(const struct hash_elem *e, void *aux UNUSED) {
 
 // MARK: Page Table Access
 
+// This accepts any user virtual address and rounds down to the nearest page
+// to look up the page_info struct for that address
+// Returns null if the given address doesn't exist in supplementary page table
 struct page_info *pagetable_info_for_address(struct hash *pagetable,
                                              void *address) {
+    void* rounded_address = pg_round_down(address);
+
     // Create dummy entry for lookup
     struct page_info lookup_entry;
-    lookup_entry.virtual_address = address;
+    lookup_entry.virtual_address = rounded_address;
     
     // Get the page_info associated with the given page.
     struct hash_elem *e = hash_find(pagetable, (void *)&lookup_entry);
-    return hash_entry(e, struct page_info, hash_elem);
+    if (e == NULL) {
+        return NULL;
+    } else {
+        return hash_entry(e, struct page_info, hash_elem);
+    }
 }
 
 // MARK: Page Loading
@@ -110,11 +103,8 @@ void pagetable_load_page(struct page_info *page) {
             NOT_REACHED();
     }
     
-    // Install the page into virtual memory
-    bool success = install_page(page->virtual_address, address, page->writable);
-    if (!success) {
-        PANIC("Unable to install page.");
-    }
+    // Install the page into virtual memory, updating the page table
+    pagedir_install_page(page->virtual_address, address, page->writable);
     
     // Update the page state
     page->state = LOADED_STATE;
@@ -127,7 +117,13 @@ static void *_pagetable_load_page_from_swap(struct page_info *page) {
     ASSERT(page->state == EVICTED_STATE);
     ASSERT(page->restoration_method == SWAP_RESTORATION);
     
-    PANIC("TODO: Loading from swap location is not yet supported.");
+    // Create frame page
+    void *frame = frametable_create_page(0);
+    
+    // Swap page into memory
+    load_swapped_page_into_frame(page, frame);
+    
+    return frame;
 }
 
 // Private function called by `pagetable_load_page`
@@ -140,11 +136,11 @@ static void *_pagetable_load_page_from_file(struct page_info *page) {
             page->restoration_method == FILE_RESTORATION));
     
     // Create frame page
-    uint8_t *address = frametable_create_page(0);
+    void *frame = frametable_create_page(0);
     
     // Read the file into the newly created page
     off_t bytes_read = file_read_at(page->file_info.file,
-                                    address,
+                                    frame,
                                     page->file_info.read_bytes,
                                     page->file_info.offset);
     
@@ -153,9 +149,9 @@ static void *_pagetable_load_page_from_file(struct page_info *page) {
     ASSERT(bytes_read == (off_t)page->file_info.read_bytes);
     
     // If the file was smaller than a page, zero out the rest of the page
-    memset((void *)((char *)address + bytes_read), 0, PGSIZE - bytes_read);
+    memset((void *)((char *)frame + bytes_read), 0, PGSIZE - bytes_read);
     
-    return address;
+    return frame;
 }
 
 // Private function called by `pagetable_load_page`
@@ -192,8 +188,8 @@ void pagetable_evict_page(struct page_info *page) {
             NOT_REACHED();
     }
     
-    // Uninstall page from virtual memory
-    PANIC("TODO: Uninstall page from virtual memory here.");
+    // Uninstall page from virtual memory, updating the page table
+    pagedir_uninstall_page(page->virtual_address);
     
     // Update the page state
     page->state = EVICTED_STATE;
@@ -201,7 +197,7 @@ void pagetable_evict_page(struct page_info *page) {
 
 // Private function called by `pagetable_evict_page`
 static void _pagetable_evict_page_to_swap(struct page_info *page) {
-    PANIC("TODO: Swapping a page is not yet supported.");
+    add_page_to_swapfile(page);
 }
 
 // Private function called by `pagetable_evict_page`
@@ -258,8 +254,8 @@ void pagetable_install_segment(struct hash *pagetable,
     
     while (read_bytes > 0 || zero_bytes > 0) {
         /* Calculate how to fill this page.
-         We will read PAGE_READ_BYTES bytes from FILE
-         and zero the final PAGE_ZERO_BYTES bytes. */
+           We will read PAGE_READ_BYTES bytes from FILE
+           and zero the final PAGE_ZERO_BYTES bytes. */
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 

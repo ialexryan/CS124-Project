@@ -2,6 +2,7 @@
 #define THREADS_VADDR_H
 
 #include <debug.h>
+#include <round.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -42,7 +43,7 @@ static inline void *pg_round_down(const void *va) {
 
 /*! Number of pages required for a given byte_count. */
 static inline int pg_count(int byte_count) {
-    return byte_count / PGSIZE + (byte_count % PGSIZE > 0);
+    return DIV_ROUND_UP(byte_count, PGSIZE);
 }
 
 /*! Base address of the 1:1 physical-to-virtual mapping.  Physical memory is
