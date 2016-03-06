@@ -1,8 +1,13 @@
 #include "vm/page.h"
 #include <hash.h>
 #include <debug.h>
+#include <stdio.h>
 #include <string.h>
 #include "threads/malloc.h"
+#include "threads/thread.h"
+#include "userprog/pagedir.h"
+#include "vm/frame.h"
+#include "vm/swap.h"
 
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
     struct page_info *page_a = hash_entry(a, struct page_info, hash_elem);
@@ -16,23 +21,35 @@ unsigned page_hash(const struct hash_elem *e, void *aux UNUSED) {
     return hash_bytes(&page->virtual_address, sizeof(page->virtual_address));
 }
 
+// This accepts any user virtual address and rounds down to the nearest page
+// to look up the page_info struct for that address
+// Returns null if the given address doesn't exist in our supplementary page table
 struct page_info *pagetable_info_for_address(struct hash *pagetable, void *address) {
+    void* rounded_address = pg_round_down(address);
+
     // Create dummy entry for lookup
     struct page_info lookup_entry;
-    lookup_entry.virtual_address = address;
+    lookup_entry.virtual_address = rounded_address;
     
     // Get the page_info associated with the given page.
     struct hash_elem *e = hash_find(pagetable, (void *)&lookup_entry);
-    return hash_entry(e, struct page_info, hash_elem);
+    if (e == NULL) {
+        return e;
+    } else {
+        return hash_entry(e, struct page_info, hash_elem);
+    }
 }
 
 // This function should only be called by the page fault handler
 void pagetable_load_page(struct page_info *page) {
     ASSERT(!page->loaded);
+
+    // Get a frame to store the page into
+    void* available_frame = frametable_create_page(0);
     
     switch (page->type) {
         case ALLOCATED_PAGE:
-            PANIC("TODO: Loading from swap location is not yet supported.");
+            load_swapped_page_into_frame(page, available_frame);
             break;
             
         case FILE_PAGE:
@@ -43,6 +60,11 @@ void pagetable_load_page(struct page_info *page) {
             NOT_REACHED();
     }
     page->loaded = true;
+
+    // Update the page table
+    pagedir_set_page(thread_current()->pagedir,
+                         page->virtual_address,
+                               available_frame, true);
 }
 
 // This function should only be called by the frametable code 
@@ -51,7 +73,7 @@ void pagetable_evict_page(struct page_info *page) {
 
     switch (page->type) {
         case ALLOCATED_PAGE:
-            PANIC("TODO: Swapping a page is not yet supported.");
+            add_page_to_swapfile(page);
             break;
             
         case FILE_PAGE:
@@ -61,6 +83,9 @@ void pagetable_evict_page(struct page_info *page) {
             NOT_REACHED();
     }
     page->loaded = false;
+
+    // Update the page table
+    pagedir_clear_page(thread_current()->pagedir, page->virtual_address);
 }
 
 void pagetable_install_file_page(struct hash *pagetable, struct file *file) {

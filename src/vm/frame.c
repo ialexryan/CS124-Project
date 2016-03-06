@@ -1,5 +1,6 @@
 #include "vm/frame.h"
 #include <debug.h>
+#include <stdio.h>
 #include "threads/loader.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
@@ -42,23 +43,31 @@ static void *page_for_frame(struct frame_info *frame) {
 }
 
 static struct frame_info* choose_frame_for_eviction(void) {
-    // TODO
+    unsigned int i;
+    for (i = 0; i < init_ram_pages; i++) {
+        if (frametable[i].is_user_page) {
+            printf("Evicting frame %d\n", i);  //TODO remove me
+            return &frametable[i];
+        }
+    }
+    NOT_REACHED();
+    ASSERT(false);
 }
 
 // Creates a new page with the given flags, returning a pointer to this page.
-void *frametable_create_page(enum palloc_flags flags) {
+void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     // Try to get a new page from palloc
     void *page = palloc_get_page(flags | PAL_USER);
 
-    if (page == NULL) {
-        PANIC("frametable_get_page: out of pages!!"); // TODO remove
-        
+    if (page == NULL) {        
         // We were out of space!
 
         // Choose a frame to evict and evict it
         struct frame_info* evict_me_f = choose_frame_for_eviction();
         void* evict_me_p = page_for_frame(evict_me_f);
+        printf("Evicting page %p\n", evict_me_p);
         struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->page_table), evict_me_p);
+        printf("Evicting supplementary page table item %p\n", evict_me_pi->virtual_address);
         pagetable_evict_page(evict_me_pi);
 
         // We've freed up some space!

@@ -2,7 +2,10 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 #include "threads/interrupt.h"
+#include "threads/pte.h"
 #include "threads/thread.h"
 #include "vm/page.h"
 
@@ -114,14 +117,14 @@ static void page_fault(struct intr_frame *f) {
     bool not_present;  /* True: not-present page, false: writing r/o page. */
     bool write;        /* True: access was write, false: access was read. */
     bool user;         /* True: access by user, false: access by kernel. */
-    void *fault_addr;  /* Fault address. */
+    void *fault_vaddr;  /* Fault address. */
 
     /* Obtain faulting address, the virtual address that was accessed to cause
        the fault.  It may point to code or to data.  It is not necessarily the
        address of the instruction that caused the fault (that's f->eip).
        See [IA32-v2a] "MOV--Move to/from Control Registers" and
        [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception (#PF)". */
-    asm ("movl %%cr2, %0" : "=r" (fault_addr));
+    asm ("movl %%cr2, %0" : "=r" (fault_vaddr));
 
     /* Turn interrupts back on (they were only off so that we could
        be assured of reading CR2 before it changed). */
@@ -135,14 +138,30 @@ static void page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
+    if (!is_user_vaddr(fault_vaddr)) {
+      // Page faulted with a kernel address
+      ASSERT(user);
+      PANIC("faulted on kernel address, %p", fault_vaddr);  // TODO remove me
+      sys_exit_helper(-1);
+    }
+
     if (not_present) {
       // The problem was a not-present page! let's handle that
-      kill(f);  // TODO: remove
-      pagetable_load_page(pagetable_info_for_address(&(thread_current()->page_table), fault_addr));
+
+      struct thread* t = thread_current();
+
+      void* page = pagedir_get_page(t->pagedir, pg_round_down(fault_vaddr));
+      if (page == NULL) {
+        // fault_vaddr is not mapped - exit with failure
+        PANIC("unmapped address %p", fault_vaddr);  //TODO remove me
+        sys_exit_helper(-1);
+      }
+
+      pagetable_load_page(pagetable_info_for_address(&(t->page_table), fault_vaddr));
     } else {
       // The problem was an access rights violation. Kill the process.
       printf("Page fault at %p: rights violation error %s page in %s context.\n",
-       fault_addr,
+       fault_vaddr,
        write ? "writing" : "reading",
        user ? "user" : "kernel");
       kill(f);
