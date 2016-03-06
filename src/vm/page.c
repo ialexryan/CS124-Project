@@ -499,5 +499,5 @@ void uninstall_page(struct hash_elem *e, void *aux UNUSED) {
 }
 
 void pagetable_uninstall_all(struct hash *pagetable) {
-    hash_apply(pagetable, uninstall_page);
+    hash_destroy(pagetable, uninstall_page);
 }
