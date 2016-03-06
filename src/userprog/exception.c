@@ -141,7 +141,6 @@ static void page_fault(struct intr_frame *f) {
     if (!is_user_vaddr(fault_vaddr)) {
       // Page faulted with a kernel address
       ASSERT(user);
-      PANIC("faulted on kernel address, %p", fault_vaddr);  // TODO remove me
       sys_exit_helper(-1);
     }
 
@@ -153,7 +152,6 @@ static void page_fault(struct intr_frame *f) {
 
       if (pi == NULL) {
         // fault_vaddr is not mapped - exit with failure
-        PANIC("unmapped address %p", fault_vaddr);  //TODO remove me
         sys_exit_helper(-1);
       }
 
