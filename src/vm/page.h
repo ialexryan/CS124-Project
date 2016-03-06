@@ -89,7 +89,7 @@ struct page_info {
             
             // The number of bytes from the file that should be
             // mapped to the page.
-            uint32_t read_bytes;
+            uint32_t num_bytes;
             
             // The next page that is assocated with this file.
             // Utilized for unmapping entire files from a

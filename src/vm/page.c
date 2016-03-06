@@ -142,12 +142,12 @@ static void *_pagetable_load_page_from_file(struct page_info *page) {
     // Read the file into the newly created page
     off_t bytes_read = file_read_at(page->file_info.file,
                                     frame,
-                                    page->file_info.read_bytes,
+                                    page->file_info.num_bytes,
                                     page->file_info.offset);
     
     // Make sure that file was actually long enough to read the number
     // of bytes specified by the page table.
-    ASSERT(bytes_read == (off_t)page->file_info.read_bytes);
+    ASSERT(bytes_read == (off_t)page->file_info.num_bytes);
     
     // If the file was smaller than a page, zero out the rest of the page
     memset((void *)((char *)frame + bytes_read), 0, PGSIZE - bytes_read);
@@ -198,12 +198,27 @@ void pagetable_evict_page(struct page_info *page) {
 
 // Private function called by `pagetable_evict_page`
 static void _pagetable_evict_page_to_swap(struct page_info *page) {
+    // Perform sanity checks
+    ASSERT(page->state == LOADED_STATE)
+    ASSERT(page->restoration_method == SWAP_RESTORATION);
+    
     add_page_to_swapfile(page);
 }
 
 // Private function called by `pagetable_evict_page`
 static void _pagetable_evict_page_to_file(struct page_info *page) {
-    PANIC("Writing a file page to disk is not yet supported.");
+    // Perform sanity checks
+    ASSERT(page->state == LOADED_STATE)
+    ASSERT(page->restoration_method == FILE_RESTORATION);
+    
+    // Write file to disk
+    off_t bytes_written = file_write_at(page->file_info.file,
+                                        page->virtual_address,
+                                        page->file_info.num_bytes,
+                                        page->file_info.offset);
+        
+    // Make sure that file was actually written to.
+    ASSERT(bytes_written == (off_t)page->file_info.num_bytes);
 }
 
 // MARK: Page Installation
@@ -226,13 +241,13 @@ static void _pagetable_install_page(struct hash *pagetable,
 // MARK: Segment Mapping
 
 /*! Installs a page for a segment starting at offset OFS in FILE at address
-    UPAGE.  In total, READ_BYTES + ZERO_BYTES bytes of virtual memory will be
+    UPAGE.  In total, num_bytes + ZERO_BYTES bytes of virtual memory will be
     set up for initialization when a page fault occurs, as follows:
 
-        - READ_BYTES bytes at UPAGE must be read from FILE
+        - num_bytes bytes at UPAGE must be read from FILE
           starting at offset OFS.
 
-        - ZERO_BYTES bytes at UPAGE + READ_BYTES must be zeroed.
+        - ZERO_BYTES bytes at UPAGE + num_bytes must be zeroed.
 
     The pages initialized by this function must be writable by the user process
     if WRITABLE is true, read-only otherwise.
@@ -240,12 +255,12 @@ static void _pagetable_install_page(struct hash *pagetable,
 void pagetable_install_segment(struct hash *pagetable,
                                struct file *file,
                                off_t offset,
-                               int32_t read_bytes,
+                               int32_t num_bytes,
                                int32_t zero_bytes,
                                bool writable,
                                void *address) {
     // Sanity check the input
-    ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
+    ASSERT((num_bytes + zero_bytes) % PGSIZE == 0);
     ASSERT(offset % PGSIZE == 0);
 
     // Reopen the file
@@ -254,12 +269,12 @@ void pagetable_install_segment(struct hash *pagetable,
         PANIC("Failed to reopen file.");
     }
     
-    while (read_bytes > 0 || zero_bytes > 0) {
+    while (num_bytes > 0 || zero_bytes > 0) {
         /* Calculate how to fill this page.
-           We will read PAGE_READ_BYTES bytes from FILE
+           We will read PAGE_num_bytes bytes from FILE
            and zero the final PAGE_ZERO_BYTES bytes. */
-        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-        size_t page_zero_bytes = PGSIZE - page_read_bytes;
+        size_t page_num_bytes = num_bytes < PGSIZE ? num_bytes : PGSIZE;
+        size_t page_zero_bytes = PGSIZE - page_num_bytes;
 
         // Allocate a page
         struct page_info *page = malloc(sizeof(struct page_info));
@@ -276,14 +291,14 @@ void pagetable_install_segment(struct hash *pagetable,
         // Initialize the load data
         page->file_info.file = reopened_file;
         page->file_info.offset = offset;
-        page->file_info.read_bytes = page_read_bytes;
+        page->file_info.num_bytes = page_num_bytes;
         page->file_info.next = NULL; // We aren't going to unmap.
         
         // Finish page installation
         _pagetable_install_page(pagetable, page);
 
         /* Advance. */
-        read_bytes -= page_read_bytes;
+        num_bytes -= page_num_bytes;
         zero_bytes -= page_zero_bytes;
         offset += PGSIZE;
         address += PGSIZE;
@@ -325,12 +340,12 @@ void pagetable_install_file(struct hash *pagetable,
         
         // Compute the number of bytes to read
         bool final_page = i == (num_pages - 1);
-        uint32_t read_bytes = final_page ? (length % PGSIZE) : PGSIZE;
+        uint32_t num_bytes = final_page ? (length % PGSIZE) : PGSIZE;
         
         // Initialize the load data
         page->file_info.file = reopened_file;
         page->file_info.offset = i * PGSIZE;
-        page->file_info.read_bytes = read_bytes;
+        page->file_info.num_bytes = num_bytes;
         page->file_info.next = successor;
         
         // Finish page installation
