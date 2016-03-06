@@ -9,6 +9,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "devices/input.h"
+#include "vm/page.h"
 #include "process.h"
 
 static void syscall_handler(struct intr_frame *);
@@ -262,8 +263,18 @@ void sys_close(struct intr_frame *f) {
 void sys_mmap(struct intr_frame *f) {
     ARG(int, fd UNUSED, f, 1);
     ARG(void *, addr UNUSED, f, 2);
-    printf("sys_mmap!\n");
-    thread_exit();
+
+    struct file *file = get_file_pointer_for_fd(fd);
+    if (file == NULL) {
+        RET(-1, f);
+    } else {
+        pagetable_install_file(&thread_current()->page_table,
+                               file,
+                               true, // TODO: Writable?
+                               addr);
+        ASSERT((int)addr > 0); // Using addr as the identifier
+        RET(addr, f);
+    }
 }
 
 void sys_munmap(struct intr_frame *f) {
