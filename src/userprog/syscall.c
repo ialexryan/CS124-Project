@@ -11,6 +11,7 @@
 #include "devices/input.h"
 #include "vm/page.h"
 #include "process.h"
+#import "threads/vaddr.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -242,18 +243,27 @@ void sys_close(struct intr_frame *f) {
 }
 
 void sys_mmap(struct intr_frame *f) {
-    ARG(int, fd UNUSED, f, 1);
-    ARG(void *, addr UNUSED, f, 2);
+    ARG(int, fd, f, 1);
+    ARG(void *, address, f, 2);
 
+    // Make sure the file descriptor is not STDIN or STDOUT
+    if (fd == STDIN_FILENO || fd == STDOUT_FILENO) RET(-1, f);
+    
+    // Make sure address is not zero
+    if (!address) RET(-1, f);
+    
+    // Make sure address is on a page boundary
+    if (pg_ofs(address) != 0) RET(-1, f);
+    
     struct file *file = get_file_pointer_for_fd(fd);
     if (file == NULL) RET(-1, f);
     else {
         pagetable_install_file(&thread_current()->pagetable,
                                file,
                                true, // TODO: Writable?
-                               addr);
-        ASSERT((int)addr > 0); // Using addr as the identifier
-        RET(addr, f);
+                               address);
+        ASSERT((int)address > 0); // Using address as the identifier
+        RET(address, f);
     }
 }
 
