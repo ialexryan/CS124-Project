@@ -313,6 +313,8 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
                     read_bytes = 0;
                     zero_bytes = ROUND_UP(page_offset + phdr.p_memsz, PGSIZE);
                 }
+                // Install the supplemental page table entries for this
+                // segment so that it can be lazily loaded.
                 pagetable_install_segment(&thread_current()->page_table,
                                           file,
                                           file_page,
