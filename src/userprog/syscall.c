@@ -20,7 +20,7 @@ void *p = ((uint32_t *)((f)->esp) + (n)); \
 verify_user_pointer(p); \
 *(type *)p; \
 })
-#define RET(value, f) ((f)->eax = (uint32_t)(value))
+#define RET(value, f) ({ ((f)->eax = (uint32_t)(value)); return; })
 
 #define syscall_type(type, handler) void handler(struct intr_frame *f);
 SYSCALL_TYPES
@@ -79,10 +79,7 @@ void sys_exec(struct intr_frame *f) {
     tid_t child_tid = process_execute(file);
 
     // If a thread could not be created, fail.
-    if (child_tid == TID_ERROR) {
-        RET(TID_ERROR, f);
-        return;
-    }
+    if (child_tid == TID_ERROR) RET(TID_ERROR, f);
     
     // Make sure the child successfully loaded.
     struct list *children = &(thread_current()->children);
@@ -95,7 +92,6 @@ void sys_exec(struct intr_frame *f) {
             sema_down(&(thread->loaded));
             if (thread->load_status == 0) RET(child_tid, f);
             else RET(-1, f);
-            return;
         }
     }
     
@@ -130,10 +126,7 @@ void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
     verify_user_pointer((void *)file_name);
 
-    if (file_name == NULL) {
-        RET(-1, f);
-        return;
-    }
+    if (file_name == NULL) RET(-1, f);
 
     struct file* x = filesys_open(file_name);
 
@@ -173,10 +166,7 @@ void sys_read(struct intr_frame *f ) {
     ARG(unsigned, size, f, 3);
     verify_user_pointer((void *)buffer);
 
-    if (fd == STDOUT_FILENO) {
-        RET(-1, f);
-        return;
-    }
+    if (fd == STDOUT_FILENO) RET(-1, f);
 
     if (fd == STDIN_FILENO) {
         input_init();
@@ -189,11 +179,8 @@ void sys_read(struct intr_frame *f ) {
         RET(size, f);
     } else {
         struct file *x = get_file_pointer_for_fd(fd);
-        if (x == NULL) {
-            RET(-1, f);
-        } else {
-            RET(file_read(x, buffer, size), f);
-        }
+        if (x == NULL) RET(-1, f);
+        else RET(file_read(x, buffer, size), f);
     }
 }
 
@@ -203,21 +190,15 @@ void sys_write(struct intr_frame *f) {
     ARG(unsigned, size, f, 3);
     verify_user_pointer((void *)buffer);
 
-    if (fd == STDIN_FILENO) {
-        RET(-1, f);
-        return;
-    }
+    if (fd == STDIN_FILENO) RET(-1, f);
 
     if (fd == STDOUT_FILENO) {
         putbuf(buffer, size);
         RET(size, f);
     } else {
         struct file *x = get_file_pointer_for_fd(fd);
-        if (x == NULL) {
-            RET(-1, f);
-        } else {
-            RET(file_write(x, buffer, size), f);
-        }
+        if (x == NULL) RET(-1, f);
+        else RET(file_write(x, buffer, size), f);
     }
 }
 
@@ -265,9 +246,8 @@ void sys_mmap(struct intr_frame *f) {
     ARG(void *, addr UNUSED, f, 2);
 
     struct file *file = get_file_pointer_for_fd(fd);
-    if (file == NULL) {
-        RET(-1, f);
-    } else {
+    if (file == NULL) RET(-1, f);
+    else {
         pagetable_install_file(&thread_current()->page_table,
                                file,
                                true, // TODO: Writable?
