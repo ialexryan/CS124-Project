@@ -8,6 +8,7 @@
 struct frame_info {
     bool is_user_page;
     bool is_pinned;
+    struct list_elem eviction_queue_list_elem;
     
     // TODO: Add pointer to supplementry page table entry
     //       so that we can update it when we evict it from
