@@ -211,6 +211,9 @@ static void _pagetable_evict_page_to_file(struct page_info *page) {
     ASSERT(page->state == LOADED_STATE)
     ASSERT(page->restoration_method == FILE_RESTORATION);
     
+    // Skip writing the file back if it isn't writable
+    if (!page->writable) return;
+    
     // Write file to disk
     off_t bytes_written = file_write_at(page->file_info.file,
                                         page->virtual_address,
