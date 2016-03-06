@@ -140,7 +140,6 @@ static void page_fault(struct intr_frame *f) {
 
     if (!is_user_vaddr(fault_vaddr)) {
       // Page faulted with a kernel address
-      ASSERT(user);
       sys_exit_helper(-1);
     }
 
