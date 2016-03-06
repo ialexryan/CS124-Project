@@ -149,14 +149,15 @@ static void page_fault(struct intr_frame *f) {
       // The problem was a not-present page! let's handle that
       struct thread* t = thread_current();
 
-      void* page = pagedir_get_page(t->pagedir, pg_round_down(fault_vaddr));
-      if (page == NULL) {
+      struct page_info* pi = pagetable_info_for_address(&(t->page_table), fault_vaddr);
+
+      if (pi == NULL) {
         // fault_vaddr is not mapped - exit with failure
         PANIC("unmapped address %p", fault_vaddr);  //TODO remove me
         sys_exit_helper(-1);
       }
 
-      pagetable_load_page(pagetable_info_for_address(&(t->page_table), fault_vaddr));
+      pagetable_load_page(pi);
     } else {
       // The problem was an access rights violation. Kill the process.
       printf("Page fault at %p: rights violation error %s page in %s context.\n",
