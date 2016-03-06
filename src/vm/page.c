@@ -219,7 +219,7 @@ static void _pagetable_install_page(struct hash *pagetable,
     
     // Insert the page into the pagetable
     ASSERT(hash_insert(pagetable, &page->hash_elem) == NULL);
-    ASSERT(pagetable_info_for_address(pagetable, page->virtual_address) != NULL);
+    ASSERT(pagetable_info_for_address(pagetable, page->virtual_address) == page);
 }
 
 // MARK: Segment Mapping
