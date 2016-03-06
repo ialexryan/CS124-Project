@@ -300,7 +300,7 @@ void pagetable_install_file(struct hash *pagetable,
     // Reopen the file
     struct file *reopened_file;
     if (!(reopened_file = file_reopen(file))) {
-        PANIC("TODO: Handle file failed to open more elegantly.");
+        PANIC("Failed to reopen file.");
     }
     
     // Compute how many pages are necessary to store the file
