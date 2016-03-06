@@ -314,6 +314,7 @@ find_bucket (struct hash *h, struct hash_elem *e)
 static struct hash_elem *
 find_elem (struct hash *h, struct list *bucket, struct hash_elem *e) 
 {
+  ASSERT(bucket != NULL);
   struct list_elem *i;
 
   for (i = list_begin (bucket); i != list_end (bucket); i = list_next (i)) 
