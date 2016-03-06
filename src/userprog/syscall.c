@@ -248,7 +248,7 @@ void sys_mmap(struct intr_frame *f) {
     struct file *file = get_file_pointer_for_fd(fd);
     if (file == NULL) RET(-1, f);
     else {
-        pagetable_install_file(&thread_current()->page_table,
+        pagetable_install_file(&thread_current()->pagetable,
                                file,
                                true, // TODO: Writable?
                                addr);
@@ -260,7 +260,7 @@ void sys_mmap(struct intr_frame *f) {
 void sys_munmap(struct intr_frame *f) {
     ARG(int, mapid UNUSED, f, 1);
     
-    struct hash *pagetable = &thread_current()->page_table;
+    struct hash *pagetable = &thread_current()->pagetable;
     struct page_info *page = pagetable_info_for_address(pagetable, (void *)mapid);
     if (page != NULL) {
         pagetable_uninstall_file(page);

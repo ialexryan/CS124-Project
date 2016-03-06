@@ -66,7 +66,7 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
         struct frame_info* evict_me_f = choose_frame_for_eviction();
         void* evict_me_p = page_for_frame(evict_me_f);
         printf("Evicting page %p\n", evict_me_p);
-        struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->page_table), evict_me_p);
+        struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->pagetable), evict_me_p);
         printf("Evicting supplementary page table item %p\n", evict_me_pi->virtual_address);
         pagetable_evict_page(evict_me_pi);
 

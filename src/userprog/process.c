@@ -315,7 +315,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
                 }
                 // Install the supplemental page table entries for this
                 // segment so that it can be lazily loaded.
-                pagetable_install_segment(&thread_current()->page_table,
+                pagetable_install_segment(&thread_current()->pagetable,
                                           file,
                                           file_page,
                                           read_bytes,

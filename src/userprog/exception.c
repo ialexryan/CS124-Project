@@ -147,7 +147,7 @@ static void page_fault(struct intr_frame *f) {
       // The problem was a not-present page! let's handle that
       struct thread* t = thread_current();
 
-      struct page_info* pi = pagetable_info_for_address(&(t->page_table), fault_vaddr);
+      struct page_info* pi = pagetable_info_for_address(&(t->pagetable), fault_vaddr);
 
       if (pi == NULL) {
         // fault_vaddr is not mapped - exit with failure

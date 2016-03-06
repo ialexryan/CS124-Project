@@ -188,7 +188,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     /* Initialize thread. */
     init_thread(t, name, priority);
     tid = t->tid = allocate_tid();
-    hash_init(&(t->page_table), page_hash, page_less, NULL);
+    hash_init(&(t->pagetable), page_hash, page_less, NULL);
     
     /* Add this cute new baby thread to its parent's family scrapbook <3 */
     list_push_front(&(thread_current()->children), &(t->child_elem));

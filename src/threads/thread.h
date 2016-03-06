@@ -130,7 +130,7 @@ struct thread {
     
     // Supplemental page table, keyed by virtual page address.
     // Note that it is illegal to access this structure on the initial thread.
-    struct hash page_table;
+    struct hash pagetable;
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
