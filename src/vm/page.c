@@ -214,6 +214,10 @@ static void _pagetable_evict_page_to_file(struct page_info *page) {
     // Skip writing the file back if it isn't writable
     if (!page->writable) return;
     
+    // Skipp writing pages that aren't dirty back to disk
+    if (!pagedir_is_dirty(thread_current()->pagedir, page->virtual_address))
+        return;
+    
     // Write file to disk
     off_t bytes_written = file_write_at(page->file_info.file,
                                         page->virtual_address,

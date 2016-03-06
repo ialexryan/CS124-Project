@@ -253,4 +253,3 @@ void pagedir_uninstall_page(void *upage) {
     /* Clear the mapping */
     pagedir_clear_page(t->pagedir, upage);
 }
-
