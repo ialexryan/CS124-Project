@@ -61,3 +61,10 @@ void load_swapped_page_into_frame(struct page_info* p, void* frame) {
 
 	lock_release(&swap_lock);
 }
+
+void delete_swapped_page(struct page_info* p) {
+    lock_acquire(&swap_lock);
+    int index = p->swap_info.swap_index;
+    bitmap_reset(swapmap, index);
+    lock_release(&swap_lock);
+}

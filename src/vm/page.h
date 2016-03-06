@@ -6,6 +6,9 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 
+// Index that indicates the file should be discarded instead of swapped.
+#define DO_NOT_SWAP_INDEX (-1)
+
 // Supplementary page info associated with a page telling us
 // how to initialize, load, and evict it.
 struct page_info {
@@ -99,13 +102,15 @@ struct page_info {
     };
 };
 
+// Used by hash table
 bool page_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
 unsigned page_hash(const struct hash_elem *e, void *aux);
+void uninstall_page(struct hash_elem *e, void *aux UNUSED);
 
 struct page_info *pagetable_info_for_address(struct hash *pagetable,
                                              void *address);
 void pagetable_load_page(struct page_info *page);
-void pagetable_evict_page(struct page_info *page);
+void *pagetable_evict_page(struct page_info *page);
 
 void pagetable_install_file(struct hash *pagetable,
                             struct file *file,
@@ -120,6 +125,9 @@ void pagetable_install_segment(struct hash *pagetable,
                                void *address);
 void pagetable_uninstall_file(struct page_info *page);
 
-void pagetable_allocate(struct hash *pagetable, void *address);
+void pagetable_install_allocation(struct hash *pagetable, void *address);
+void pagetable_uninstall_allocation(struct page_info *page);
+
+void pagetable_uninstall_all(struct hash *pagetable);
 
 #endif /* vm/page.h */

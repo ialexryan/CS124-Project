@@ -18,5 +18,6 @@ struct frame_info {
 
 void frametable_init(void);
 void *frametable_create_page(enum palloc_flags flags);
+void frametable_free_page(void *page);
 
 #endif /* vm/frame.h */

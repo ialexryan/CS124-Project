@@ -131,6 +131,9 @@ struct thread {
     // Supplemental page table, keyed by virtual page address.
     // Note that it is illegal to access this structure on the initial thread.
     struct hash pagetable;
+    
+    // List of `page_info` structs corresponding to mmap'd files.
+    struct list mmap_pages;
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */

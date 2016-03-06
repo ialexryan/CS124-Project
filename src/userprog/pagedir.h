@@ -16,7 +16,7 @@ void pagedir_set_accessed(uint32_t *pd, const void *upage, bool accessed);
 void pagedir_activate(uint32_t *pd);
 
 void pagedir_install_page(void *upage, void *kpage, bool writable);
-void pagedir_uninstall_page(void *upage);
+void *pagedir_uninstall_page(void *upage);
 
 #endif /* userprog/pagedir.h */
 

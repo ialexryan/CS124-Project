@@ -274,6 +274,7 @@ void sys_munmap(struct intr_frame *f) {
     
     struct hash *pagetable = &thread_current()->pagetable;
     struct page_info *page = pagetable_info_for_address(pagetable, (void *)mapid);
+
     if (page != NULL) {
         pagetable_uninstall_file(page);
     }

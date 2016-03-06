@@ -246,10 +246,14 @@ void pagedir_install_page(void *upage, void *kpage, bool writable) {
 }
 
 /*! Removes a mapping from user virtual address UPAGE to another kernel
-    virtual address from the page table. */
-void pagedir_uninstall_page(void *upage) {
+    virtual address from the page table, returning the kernal address. */
+void *pagedir_uninstall_page(void *upage) {
     struct thread *t = thread_current();
+    
+    void *kpage = pagedir_get_page(t->pagedir, upage);
     
     /* Clear the mapping */
     pagedir_clear_page(t->pagedir, upage);
+    
+    return kpage;
 }

@@ -1,78 +1,3 @@
-gcc -c ../../vm/page.c -o vm/page.o -g -msoft-float -O -fno-stack-protector -nostdinc -I../.. -I../../lib -I../../lib/kernel -Wall -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers -DUSERPROG -DFILESYS -DVM -MMD -MF vm/page.d
-ld -T threads/kern.lds.s -o kernel.o threads/start.o threads/init.o threads/thread.o threads/switch.o threads/interrupt.o threads/intr-stubs.o threads/synch.o threads/palloc.o threads/malloc.o devices/pit.o devices/timer.o devices/kbd.o devices/vga.o devices/serial.o devices/block.o devices/partition.o devices/ide.o devices/input.o devices/intq.o devices/rtc.o devices/shutdown.o devices/speaker.o lib/debug.o lib/random.o lib/stdio.o lib/stdlib.o lib/string.o lib/arithmetic.o lib/ustar.o lib/kernel/debug.o lib/kernel/list.o lib/kernel/bitmap.o lib/kernel/hash.o lib/kernel/console.o userprog/process.o userprog/pagedir.o userprog/exception.o userprog/syscall.o userprog/gdt.o userprog/tss.o filesys/filesys.o filesys/free-map.o filesys/file.o filesys/directory.o filesys/inode.o filesys/fsutil.o vm/frame.o vm/page.o vm/swap.o
-objcopy -R .note -R .comment -S kernel.o kernel.bin
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/args-none -a args-none --swap-size=4 -- -q  -f run args-none < /dev/null 2> tests/userprog/args-none.errors > tests/userprog/args-none.output
-perl -I../.. ../../tests/userprog/args-none.ck tests/userprog/args-none tests/userprog/args-none.result
-pass tests/userprog/args-none
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/args-single -a args-single --swap-size=4 -- -q  -f run 'args-single onearg' < /dev/null 2> tests/userprog/args-single.errors > tests/userprog/args-single.output
-perl -I../.. ../../tests/userprog/args-single.ck tests/userprog/args-single tests/userprog/args-single.result
-pass tests/userprog/args-single
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/args-multiple -a args-multiple --swap-size=4 -- -q  -f run 'args-multiple some arguments for you!' < /dev/null 2> tests/userprog/args-multiple.errors > tests/userprog/args-multiple.output
-perl -I../.. ../../tests/userprog/args-multiple.ck tests/userprog/args-multiple tests/userprog/args-multiple.result
-pass tests/userprog/args-multiple
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/args-many -a args-many --swap-size=4 -- -q  -f run 'args-many a b c d e f g h i j k l m n o p q r s t u v' < /dev/null 2> tests/userprog/args-many.errors > tests/userprog/args-many.output
-perl -I../.. ../../tests/userprog/args-many.ck tests/userprog/args-many tests/userprog/args-many.result
-pass tests/userprog/args-many
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/args-dbl-space -a args-dbl-space --swap-size=4 -- -q  -f run 'args-dbl-space two  spaces!' < /dev/null 2> tests/userprog/args-dbl-space.errors > tests/userprog/args-dbl-space.output
-perl -I../.. ../../tests/userprog/args-dbl-space.ck tests/userprog/args-dbl-space tests/userprog/args-dbl-space.result
-pass tests/userprog/args-dbl-space
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/sc-bad-sp -a sc-bad-sp --swap-size=4 -- -q  -f run sc-bad-sp < /dev/null 2> tests/userprog/sc-bad-sp.errors > tests/userprog/sc-bad-sp.output
-perl -I../.. ../../tests/userprog/sc-bad-sp.ck tests/userprog/sc-bad-sp tests/userprog/sc-bad-sp.result
-pass tests/userprog/sc-bad-sp
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/sc-bad-arg -a sc-bad-arg --swap-size=4 -- -q  -f run sc-bad-arg < /dev/null 2> tests/userprog/sc-bad-arg.errors > tests/userprog/sc-bad-arg.output
-perl -I../.. ../../tests/userprog/sc-bad-arg.ck tests/userprog/sc-bad-arg tests/userprog/sc-bad-arg.result
-pass tests/userprog/sc-bad-arg
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/sc-boundary -a sc-boundary --swap-size=4 -- -q  -f run sc-boundary < /dev/null 2> tests/userprog/sc-boundary.errors > tests/userprog/sc-boundary.output
-perl -I../.. ../../tests/userprog/sc-boundary.ck tests/userprog/sc-boundary tests/userprog/sc-boundary.result
-pass tests/userprog/sc-boundary
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/sc-boundary-2 -a sc-boundary-2 --swap-size=4 -- -q  -f run sc-boundary-2 < /dev/null 2> tests/userprog/sc-boundary-2.errors > tests/userprog/sc-boundary-2.output
-perl -I../.. ../../tests/userprog/sc-boundary-2.ck tests/userprog/sc-boundary-2 tests/userprog/sc-boundary-2.result
-pass tests/userprog/sc-boundary-2
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/halt -a halt --swap-size=4 -- -q  -f run halt < /dev/null 2> tests/userprog/halt.errors > tests/userprog/halt.output
-perl -I../.. ../../tests/userprog/halt.ck tests/userprog/halt tests/userprog/halt.result
-pass tests/userprog/halt
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/exit -a exit --swap-size=4 -- -q  -f run exit < /dev/null 2> tests/userprog/exit.errors > tests/userprog/exit.output
-perl -I../.. ../../tests/userprog/exit.ck tests/userprog/exit tests/userprog/exit.result
-pass tests/userprog/exit
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-normal -a create-normal --swap-size=4 -- -q  -f run create-normal < /dev/null 2> tests/userprog/create-normal.errors > tests/userprog/create-normal.output
-perl -I../.. ../../tests/userprog/create-normal.ck tests/userprog/create-normal tests/userprog/create-normal.result
-pass tests/userprog/create-normal
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-empty -a create-empty --swap-size=4 -- -q  -f run create-empty < /dev/null 2> tests/userprog/create-empty.errors > tests/userprog/create-empty.output
-perl -I../.. ../../tests/userprog/create-empty.ck tests/userprog/create-empty tests/userprog/create-empty.result
-pass tests/userprog/create-empty
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-null -a create-null --swap-size=4 -- -q  -f run create-null < /dev/null 2> tests/userprog/create-null.errors > tests/userprog/create-null.output
-perl -I../.. ../../tests/userprog/create-null.ck tests/userprog/create-null tests/userprog/create-null.result
-pass tests/userprog/create-null
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-bad-ptr -a create-bad-ptr --swap-size=4 -- -q  -f run create-bad-ptr < /dev/null 2> tests/userprog/create-bad-ptr.errors > tests/userprog/create-bad-ptr.output
-perl -I../.. ../../tests/userprog/create-bad-ptr.ck tests/userprog/create-bad-ptr tests/userprog/create-bad-ptr.result
-pass tests/userprog/create-bad-ptr
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-long -a create-long --swap-size=4 -- -q  -f run create-long < /dev/null 2> tests/userprog/create-long.errors > tests/userprog/create-long.output
-perl -I../.. ../../tests/userprog/create-long.ck tests/userprog/create-long tests/userprog/create-long.result
-pass tests/userprog/create-long
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-exists -a create-exists --swap-size=4 -- -q  -f run create-exists < /dev/null 2> tests/userprog/create-exists.errors > tests/userprog/create-exists.output
-perl -I../.. ../../tests/userprog/create-exists.ck tests/userprog/create-exists tests/userprog/create-exists.result
-pass tests/userprog/create-exists
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/create-bound -a create-bound --swap-size=4 -- -q  -f run create-bound < /dev/null 2> tests/userprog/create-bound.errors > tests/userprog/create-bound.output
-perl -I../.. ../../tests/userprog/create-bound.ck tests/userprog/create-bound tests/userprog/create-bound.result
-pass tests/userprog/create-bound
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-normal -a open-normal -p ../../tests/userprog/sample.txt -a sample.txt --swap-size=4 -- -q  -f run open-normal < /dev/null 2> tests/userprog/open-normal.errors > tests/userprog/open-normal.output
-perl -I../.. ../../tests/userprog/open-normal.ck tests/userprog/open-normal tests/userprog/open-normal.result
-pass tests/userprog/open-normal
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-missing -a open-missing --swap-size=4 -- -q  -f run open-missing < /dev/null 2> tests/userprog/open-missing.errors > tests/userprog/open-missing.output
-perl -I../.. ../../tests/userprog/open-missing.ck tests/userprog/open-missing tests/userprog/open-missing.result
-pass tests/userprog/open-missing
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-boundary -a open-boundary -p ../../tests/userprog/sample.txt -a sample.txt --swap-size=4 -- -q  -f run open-boundary < /dev/null 2> tests/userprog/open-boundary.errors > tests/userprog/open-boundary.output
-perl -I../.. ../../tests/userprog/open-boundary.ck tests/userprog/open-boundary tests/userprog/open-boundary.result
-pass tests/userprog/open-boundary
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-empty -a open-empty --swap-size=4 -- -q  -f run open-empty < /dev/null 2> tests/userprog/open-empty.errors > tests/userprog/open-empty.output
-perl -I../.. ../../tests/userprog/open-empty.ck tests/userprog/open-empty tests/userprog/open-empty.result
-pass tests/userprog/open-empty
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-null -a open-null --swap-size=4 -- -q  -f run open-null < /dev/null 2> tests/userprog/open-null.errors > tests/userprog/open-null.output
-perl -I../.. ../../tests/userprog/open-null.ck tests/userprog/open-null tests/userprog/open-null.result
-pass tests/userprog/open-null
-pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-bad-ptr -a open-bad-ptr --swap-size=4 -- -q  -f run open-bad-ptr < /dev/null 2> tests/userprog/open-bad-ptr.errors > tests/userprog/open-bad-ptr.output
-perl -I../.. ../../tests/userprog/open-bad-ptr.ck tests/userprog/open-bad-ptr tests/userprog/open-bad-ptr.result
-pass tests/userprog/open-bad-ptr
 pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/userprog/open-twice -a open-twice -p ../../tests/userprog/sample.txt -a sample.txt --swap-size=4 -- -q  -f run open-twice < /dev/null 2> tests/userprog/open-twice.errors > tests/userprog/open-twice.output
 perl -I../.. ../../tests/userprog/open-twice.ck tests/userprog/open-twice tests/userprog/open-twice.result
 pass tests/userprog/open-twice
@@ -312,7 +237,6 @@ Differences in `diff -u' format:
 - (page-linear) read pass
 - (page-linear) end
 + Evicting frame 641
-+ Evicting page 0xc0281000
 
 (Process exit codes are excluded for matching purposes.)
 pintos -v -k -T 60 --bochs  --filesys-size=2 -p tests/vm/page-parallel -a page-parallel -p tests/vm/child-linear -a child-linear --swap-size=4 -- -q  -f run page-parallel < /dev/null 2> tests/vm/page-parallel.errors > tests/vm/page-parallel.output
