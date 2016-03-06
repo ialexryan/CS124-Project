@@ -71,7 +71,7 @@ void pagetable_load_page(struct page_info *page) {
                     
                 case FILE_INITIALIZATION:
                     // Load the page from file
-                    address = _pagetable_load_page_from_swap(page);
+                    address = _pagetable_load_page_from_file(page);
                     break;
                     
                 default:
@@ -217,7 +217,7 @@ static void _pagetable_install_page(struct hash *pagetable,
     
     // Final setup
     page->state = UNINITIALIZED_STATE;
-        
+    
     // Insert the page into the pagetable
     struct hash_elem *existing = hash_insert(pagetable, &page->hash_elem);
     ASSERT(existing == NULL); // Make sure the item isn't already here.
