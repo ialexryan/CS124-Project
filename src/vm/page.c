@@ -119,12 +119,15 @@ static void *_pagetable_load_page_from_swap(struct page_info *page) {
     ASSERT(page->restoration_method == SWAP_RESTORATION);
     
     // Create frame page
-    void *frame = frametable_create_page(0);
-    
+    void *f = frametable_create_page(0);
+    struct frame_info* fi = frame_for_page(f);
+    fi->user_vaddr = page->virtual_address;
+    ASSERT(is_user_vaddr(page->virtual_address));
+
     // Swap page into memory
-    load_swapped_page_into_frame(page, frame);
+    load_swapped_page_into_frame(page, f);
     
-    return frame;
+    return f;
 }
 
 // Private function called by `pagetable_load_page`
@@ -137,11 +140,14 @@ static void *_pagetable_load_page_from_file(struct page_info *page) {
             page->restoration_method == FILE_RESTORATION));
     
     // Create frame page
-    void *frame = frametable_create_page(0);
+    void *f = frametable_create_page(0);
+    struct frame_info* fi = frame_for_page(f);
+    fi->user_vaddr = page->virtual_address;
+    ASSERT(is_user_vaddr(page->virtual_address));
     
     // Read the file into the newly created page
     off_t bytes_read = file_read_at(page->file_info.file,
-                                    frame,
+                                    f,
                                     page->file_info.num_bytes,
                                     page->file_info.offset);
     
@@ -150,9 +156,9 @@ static void *_pagetable_load_page_from_file(struct page_info *page) {
     ASSERT(bytes_read == (off_t)page->file_info.num_bytes);
     
     // If the file was smaller than a page, zero out the rest of the page
-    memset((void *)((char *)frame + bytes_read), 0, PGSIZE - bytes_read);
+    memset((void *)((char *)f + bytes_read), 0, PGSIZE - bytes_read);
     
-    return frame;
+    return f;
 }
 
 // Private function called by `pagetable_load_page`
@@ -162,9 +168,12 @@ static void *_pagetable_load_page_zero_initialized(struct page_info *page) {
     ASSERT(page->state == UNINITIALIZED_STATE);
     ASSERT(page->initialization_method == ZERO_INITIALIZATION);
     
-    void *frame = frametable_create_page(PAL_ZERO);
-    
-    return frame;
+    void *f = frametable_create_page(PAL_ZERO);
+    struct frame_info* fi = frame_for_page(f);
+    fi->user_vaddr = page->virtual_address;
+    ASSERT(is_user_vaddr(page->virtual_address));
+
+    return f;
 }
 
 // MARK: Page Eviction
@@ -172,7 +181,7 @@ static void *_pagetable_load_page_zero_initialized(struct page_info *page) {
 static void _pagetable_evict_page_to_swap(struct page_info *page);
 static void _pagetable_evict_page_to_file(struct page_info *page);
 
-// Evict the given page without freeing its frame. Returns the kernal address
+// Evict the given page without freeing its frame. Returns the kernel address
 // of the page's memory.
 void *pagetable_evict_page(struct page_info *page) {
     ASSERT(page->state == LOADED_STATE);
@@ -242,6 +251,7 @@ static void _pagetable_install_page(struct hash *pagetable,
                                     struct page_info *page) {
     // Sanity check the address
     ASSERT(pg_ofs(page->virtual_address) == 0);
+    ASSERT(is_user_vaddr(page->virtual_address));
     
     // Final setup
     page->state = UNINITIALIZED_STATE;

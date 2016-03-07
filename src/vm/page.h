@@ -12,7 +12,7 @@
 // Supplementary page info associated with a page telling us
 // how to initialize, load, and evict it.
 struct page_info {
-    // The virtual address at which the page is mapped. Used
+    // The user virtual address at which the page is mapped. Used
     // as the key in the hash map.
     void *virtual_address;
     

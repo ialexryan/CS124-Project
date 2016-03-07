@@ -8,6 +8,7 @@
 struct frame_info {
     bool is_user_page;
     bool is_pinned;
+    void* user_vaddr;
     struct list_elem eviction_queue_list_elem;
     
     // TODO: Add pointer to supplementry page table entry
@@ -18,6 +19,8 @@ struct frame_info {
 };
 
 void frametable_init(void);
+struct frame_info *frame_for_page(void *page);
+void *page_for_frame(struct frame_info *frame);
 void *frametable_create_page(enum palloc_flags flags);
 void frametable_free_page(void *page);
 
