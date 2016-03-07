@@ -118,6 +118,8 @@ int process_wait(tid_t child_tid) {
 void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
+    
+    pagetable_uninstall_all(&cur->pagetable);
 
     file_close(cur->executable_file);
     
