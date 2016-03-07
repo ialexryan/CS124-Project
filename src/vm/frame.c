@@ -66,6 +66,9 @@ static struct frame_info* choose_frame_for_eviction(void) {
         void* kpage_for_front_frame = page_for_frame(front_frame);
         void* upage_for_front_frame = front_frame->user_vaddr;
 
+        list_pop_front(&frame_eviction_queue);
+        list_push_back(&frame_eviction_queue, &(front_frame->eviction_queue_list_elem));
+
         bool has_been_accessed = pagedir_is_accessed(thread_current()->pagedir, kpage_for_front_frame) &&
                                  pagedir_is_accessed(thread_current()->pagedir, upage_for_front_frame);
         bool is_pinned = front_frame->is_pinned;
@@ -74,12 +77,9 @@ static struct frame_info* choose_frame_for_eviction(void) {
             // This isn't our guy, send him to the back of the line
             pagedir_set_accessed(thread_current()->pagedir, kpage_for_front_frame, false);
             pagedir_set_accessed(thread_current()->pagedir, upage_for_front_frame, false);
-            list_pop_front(&frame_eviction_queue);
-            list_push_back(&frame_eviction_queue, &(front_frame->eviction_queue_list_elem));
         } else {
             ASSERT(front_frame->is_user_page);
-            // TODO: do we want to maybe still move it to the back?
-            printf("Evicting frame %d with user_vaddr %p\n", front_frame - frametable, (front_frame)->user_vaddr);
+            // printf("Evicting frame %d with user_vaddr %p\n", front_frame - frametable, (front_frame)->user_vaddr);
             return front_frame;
         }
     } while (true);
@@ -98,8 +98,8 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
         struct frame_info* evict_me_f = choose_frame_for_eviction();
         ASSERT(evict_me_f->user_vaddr);
         ASSERT(is_user_vaddr(evict_me_f->user_vaddr));
-
         struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->pagetable), evict_me_f->user_vaddr);
+        ASSERT(evict_me_pi->virtual_address == evict_me_f->user_vaddr);
         ASSERT(evict_me_pi != NULL);
         pagetable_evict_page(evict_me_pi);
 
