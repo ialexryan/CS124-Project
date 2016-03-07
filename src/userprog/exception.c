@@ -154,6 +154,7 @@ static void page_fault(struct intr_frame *f) {
             // This page already exists in our page table--load it!
             pagetable_load_page(pi);
         } else {
+            ASSERT(f->esp <= PHYS_BASE);
             // We didn't find a page for that address!
             // Check if this might be a good time to extend the stack
             if (fault_vaddr > (void *)(f->esp - 64) &&
