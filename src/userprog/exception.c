@@ -129,39 +129,39 @@ static void page_fault(struct intr_frame *f) {
     /* Turn interrupts back on (they were only off so that we could
        be assured of reading CR2 before it changed). */
     intr_enable();
-
+    
     /* Count page faults. */
     page_fault_cnt++;
-
+    
     /* Determine cause. */
     not_present = (f->error_code & PF_P) == 0;
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
-
+    
     if (!is_user_vaddr(fault_vaddr)) {
-      // Page faulted with a kernel address
-      sys_exit_helper(-1);
-    }
-
-    if (not_present) {
-      // The problem was a not-present page! let's handle that
-      struct thread* t = thread_current();
-
-      struct page_info* pi = pagetable_info_for_address(&(t->pagetable), fault_vaddr);
-
-      if (pi == NULL) {
-        // fault_vaddr is not mapped - exit with failure
+        // Page faulted with a kernel address
         sys_exit_helper(-1);
-      }
-
-      pagetable_load_page(pi);
+    }
+    
+    if (not_present) {
+        // The problem was a not-present page! let's handle that
+        struct thread* t = thread_current();
+        
+        struct page_info* pi = pagetable_info_for_address(&(t->pagetable), fault_vaddr);
+        
+        if (pi == NULL) {
+            // fault_vaddr is not mapped - exit with failure
+            sys_exit_helper(-1);
+        }
+        
+        pagetable_load_page(pi);
     } else {
-      // The problem was an access rights violation. Kill the process.
-      printf("Page fault at %p: rights violation error %s page in %s context.\n",
-       fault_vaddr,
-       write ? "writing" : "reading",
-       user ? "user" : "kernel");
-      kill(f);
+        // The problem was an access rights violation. Kill the process.
+        printf("Page fault at %p: rights violation error %s page in %s context.\n",
+               fault_vaddr,
+               write ? "writing" : "reading",
+               user ? "user" : "kernel");
+        kill(f);
     }
 }
 
