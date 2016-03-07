@@ -63,14 +63,22 @@ static struct frame_info* choose_frame_for_eviction(void) {
     do {
         struct list_elem* front_list_elem = list_front(&frame_eviction_queue);
         front_frame = list_entry(front_list_elem, struct frame_info, eviction_queue_list_elem);
+        void* kpage_for_front_frame = page_for_frame(front_frame);
+        void* upage_for_front_frame = front_frame->user_vaddr;
 
-        // TODO: this checks the kernel page table, check the user page table too
-        if (pagedir_is_accessed(thread_current()->pagedir, page_for_frame(front_frame))) {
-            pagedir_set_accessed(thread_current()->pagedir, page_for_frame(front_frame), false);
+        bool has_been_accessed = pagedir_is_accessed(thread_current()->pagedir, kpage_for_front_frame) &&
+                                 pagedir_is_accessed(thread_current()->pagedir, upage_for_front_frame);
+        bool is_pinned = front_frame->is_pinned;
+
+        if (has_been_accessed || is_pinned) {
+            // This isn't our guy, send him to the back of the line
+            pagedir_set_accessed(thread_current()->pagedir, kpage_for_front_frame, false);
+            pagedir_set_accessed(thread_current()->pagedir, upage_for_front_frame, false);
             list_pop_front(&frame_eviction_queue);
             list_push_back(&frame_eviction_queue, &(front_frame->eviction_queue_list_elem));
         } else {
             ASSERT(front_frame->is_user_page);
+            // TODO: do we want to maybe still move it to the back?
             printf("Evicting frame %d with user_vaddr %p\n", front_frame - frametable, (front_frame)->user_vaddr);
             return front_frame;
         }
@@ -103,6 +111,7 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     // Let's do any initialization needed for the frame_info entry.
     struct frame_info *frame = frame_for_page(page);
     frame->is_user_page = true;
+    frame->is_pinned = false;
     frame->user_vaddr = page;
 
     // Add to the end of the eviction queue
