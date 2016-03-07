@@ -464,11 +464,8 @@ static void setup_stack(void **esp) {
     struct hash *pagetable = &thread_current()->pagetable;
     void *address = (void *)((uint8_t *) PHYS_BASE) - PGSIZE;
     
-    // Set up allocation of initial stack frame
-    pagetable_install_allocation(pagetable, address);
-
-    // Eagerly load stack frame
-    pagetable_load_page(pagetable_info_for_address(pagetable, address));
+    // Set up allocation of initial stack frame and eagerly load stack frame
+    pagetable_install_and_load_allocation(pagetable, address);
     
     // Set up stack pointer
     *esp = PHYS_BASE;

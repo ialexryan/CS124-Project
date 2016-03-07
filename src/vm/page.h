@@ -126,6 +126,7 @@ void pagetable_install_segment(struct hash *pagetable,
 void pagetable_uninstall_file(struct page_info *page);
 
 void pagetable_install_allocation(struct hash *pagetable, void *address);
+void pagetable_install_and_load_allocation(struct hash *pagetable, void *address);
 void pagetable_uninstall_allocation(struct page_info *page);
 
 void pagetable_uninstall_all(struct hash *pagetable);

@@ -419,6 +419,15 @@ void pagetable_uninstall_file(struct page_info *page) {
 
 // MARK: Allocation
 
+void pagetable_install_and_load_allocation(struct hash *pagetable,
+                                           void *address) {
+    // Set up allocation
+    pagetable_install_allocation(pagetable, address);
+    
+    // Eagerly load frame
+    pagetable_load_page(pagetable_info_for_address(pagetable, address));
+}
+
 void pagetable_install_allocation(struct hash *pagetable, void *address) {
     // Allocate a page
     struct page_info *page = malloc(sizeof(struct page_info));

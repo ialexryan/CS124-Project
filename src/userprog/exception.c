@@ -8,6 +8,7 @@
 #include "threads/pte.h"
 #include "threads/thread.h"
 #include "vm/page.h"
+#include "threads/vaddr.h"
 
 /*! Number of page faults processed. */
 static long long page_fault_cnt;
@@ -147,14 +148,25 @@ static void page_fault(struct intr_frame *f) {
         // The problem was a not-present page! let's handle that
         struct thread* t = thread_current();
         
-        struct page_info* pi = pagetable_info_for_address(&(t->pagetable), fault_vaddr);
-        
-        if (pi == NULL) {
-            // fault_vaddr is not mapped - exit with failure
-            sys_exit_helper(-1);
+        struct page_info* pi;
+        if ((pi = pagetable_info_for_address(&t->pagetable, fault_vaddr))) {
+            // This page already exists in our page table--load it!
+            pagetable_load_page(pi);
+        } else {
+            // We didn't find a page for that address!
+            // Check if this might be a good time to extend the stack
+            if (fault_vaddr > (void *)(f->esp - 64) &&
+                fault_vaddr < PHYS_BASE) {
+                // Looks like this fits our heuristic for a stack access
+                // Allocate another page and load it
+                pagetable_install_and_load_allocation(&t->pagetable,
+                                                      pg_round_down(fault_vaddr));
+            } else {
+                // fault_vaddr is not mapped - exit with failure
+                sys_exit_helper(-1);
+            }
         }
         
-        pagetable_load_page(pi);
     } else {
         // The problem was an access rights violation. Kill the process.
         printf("Page fault at %p: rights violation error %s page in %s context.\n",
