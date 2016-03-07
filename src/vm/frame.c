@@ -30,7 +30,8 @@ void frametable_init(void) {
     list_init(&frame_eviction_queue);
 }
 
-static struct frame_info *frame_for_page(void *page) {
+// Takes a kernel virtual address and returns a frame_info struct
+struct frame_info *frame_for_page(void *page) {
     // Get the physical address and make sure the
     // given page actually falls on a page boundary
     uintptr_t physical_address = vtop(page);
@@ -42,13 +43,14 @@ static struct frame_info *frame_for_page(void *page) {
     return &frametable[index];
 }
 
-static void *page_for_frame(struct frame_info *frame) {
+// Takes a frame_info struct and returns a kernel virtual address
+void *page_for_frame(struct frame_info *frame) {
     // Get the index and make sure its valid
     int frame_index = frame - frametable;
     ASSERT(frame_index >= 0 && frame_index < (int)init_ram_pages);
     
     // Compute the physical address for a given index
-    // and convert to a virtual address
+    // and convert to a kernel virtual address
     uintptr_t physical_address = frame_index * PGSIZE;
     return ptov(physical_address);
 }
@@ -69,7 +71,7 @@ static struct frame_info* choose_frame_for_eviction(void) {
             list_push_back(&frame_eviction_queue, &(front_frame->eviction_queue_list_elem));
         } else {
             ASSERT(front_frame->is_user_page);
-            printf("Evicting frame %d\n", front_frame - frametable);
+            printf("Evicting frame %d with user_vaddr %p\n", front_frame - frametable, (front_frame)->user_vaddr);
             return front_frame;
         }
     } while (true);
@@ -78,25 +80,30 @@ static struct frame_info* choose_frame_for_eviction(void) {
 // Creates a new page with the given flags, returning a pointer to this page.
 void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     // Try to get a new page from palloc
+    // page is a kernel virtual address
     void *page = palloc_get_page(flags | PAL_USER);
 
-    if (page == NULL) {        
+    if (page == NULL) {
         // We were out of space!
 
-        // Choose a frame to evict and evict it
+        // Choose a frame to evict
         struct frame_info* evict_me_f = choose_frame_for_eviction();
-        void* evict_me_p = page_for_frame(evict_me_f);
-        struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->pagetable), evict_me_p);
+        ASSERT(evict_me_f->user_vaddr);
+        ASSERT(is_user_vaddr(evict_me_f->user_vaddr));
+
+        struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->pagetable), evict_me_f->user_vaddr);
+        ASSERT(evict_me_pi != NULL);
         pagetable_evict_page(evict_me_pi);
 
         // We've freed up some space!
-        page = evict_me_p;
+        page = page_for_frame(evict_me_f);
     }
  
     // Alright, we've finally gotten a valid page.
     // Let's do any initialization needed for the frame_info entry.
     struct frame_info *frame = frame_for_page(page);
     frame->is_user_page = true;
+    frame->user_vaddr = page;
 
     // Add to the end of the eviction queue
     list_push_back(&frame_eviction_queue, &(frame->eviction_queue_list_elem));
@@ -113,6 +120,7 @@ void frametable_free_page(void *page) {
     // Cleanup table entry
     struct frame_info *frame = frame_for_page(page);
     frame->is_user_page = false;
+    frame->user_vaddr = NULL;
     
     // Free the page
     palloc_free_page(page);
