@@ -119,6 +119,7 @@ void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
     
+    // Remove all pages from virtual memory and write mmap'd pages back to disk
     pagetable_uninstall_all(&cur->pagetable);
 
     file_close(cur->executable_file);

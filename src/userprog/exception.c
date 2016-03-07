@@ -157,7 +157,6 @@ static void page_fault(struct intr_frame *f) {
             // Check if this might be a good time to extend the stack
             if (fault_vaddr > (void *)(f->esp - 64) &&
                 fault_vaddr < PHYS_BASE) {
-                printf("Extending stack...\n");
                 // Looks like this fits our heuristic for a stack access
                 // Do we have space for a bigger stack?
                 if (PHYS_BASE - fault_vaddr > MAX_STACK_SIZE) {
@@ -168,7 +167,6 @@ static void page_fault(struct intr_frame *f) {
                 pagetable_install_and_load_allocation(&t->pagetable,
                                                       pg_round_down(fault_vaddr));
             } else {
-                printf("Page fault.\n");
                 // fault_vaddr is not mapped - exit with failure
                 sys_exit_helper(-1);
             }

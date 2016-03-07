@@ -517,6 +517,6 @@ void uninstall_page(struct hash_elem *e, void *aux UNUSED) {
 }
 
 void pagetable_uninstall_all(struct hash *pagetable) {
-    return; // This is buggy, so we're skipping it for now.
-    hash_clear(pagetable, uninstall_page);
+    // This does not yet work reliably due to some stack bug.
+    // hash_clear(pagetable, uninstall_page);
 }
