@@ -141,6 +141,7 @@ static void page_fault(struct intr_frame *f) {
     
     if (!is_user_vaddr(fault_vaddr)) {
         // Page faulted with a kernel address
+        printf("DEBUG: pagefaulted on a swapped-out kernel address\n");
         sys_exit_helper(-1);
     }
     
@@ -168,6 +169,7 @@ static void page_fault(struct intr_frame *f) {
                                                       pg_round_down(fault_vaddr));
             } else {
                 // fault_vaddr is not mapped - exit with failure
+                printf("DEBUG: tried to load a user vaddr %p that isn't mapped\n", fault_vaddr);
                 sys_exit_helper(-1);
             }
         }
