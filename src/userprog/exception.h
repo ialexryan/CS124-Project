@@ -7,6 +7,9 @@
 #define PF_U 0x4    /*!< 0: kernel, 1: user process. */
 /*! @} */
 
+// stack size of each process is limited to 8MB
+#define MAX_STACK_SIZE (8 * 1024 * 1024)
+
 void exception_init(void);
 void exception_print_stats(void);
 

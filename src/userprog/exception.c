@@ -159,6 +159,11 @@ static void page_fault(struct intr_frame *f) {
                 fault_vaddr < PHYS_BASE) {
                 printf("Extending stack...\n");
                 // Looks like this fits our heuristic for a stack access
+                // Do we have space for a bigger stack?
+                if (PHYS_BASE - fault_vaddr > MAX_STACK_SIZE) {
+                  // We stop growing the stack at 8MB
+                  sys_exit_helper(-1);
+                }
                 // Allocate another page and load it
                 pagetable_install_and_load_allocation(&t->pagetable,
                                                       pg_round_down(fault_vaddr));
