@@ -468,7 +468,6 @@ static void setup_stack(void **esp) {
     pagetable_install_allocation(pagetable, address);
 
     // Eagerly load stack frame
-    printf("Loading a stack frame\n");
     pagetable_load_page(pagetable_info_for_address(pagetable, address));
     
     // Set up stack pointer
