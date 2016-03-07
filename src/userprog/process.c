@@ -217,7 +217,7 @@ struct Elf32_Phdr {
 #define PF_R 4          /*!< Readable. */
 /*! @} */
 
-static bool setup_stack(void **esp);
+static void setup_stack(void **esp);
 static bool validate_segment(const struct Elf32_Phdr *, struct file *);
 
 /*! Loads an ELF executable from FILE_NAME into the current thread.  Stores the
@@ -335,8 +335,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     }
 
     /* Set up stack. */
-    if (!setup_stack(esp))
-        goto done;
+    setup_stack(esp);
 
     /* Here's where we tokenize the rest of the command string
        and push all the arguments onto the stack.
@@ -417,8 +416,6 @@ done:
 
 /* load() helpers. */
 
-static bool install_page(void *upage, void *kpage, bool writable);
-
 /*! Checks whether PHDR describes a valid, loadable segment in
     FILE and returns true if so, false otherwise. */
 static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
@@ -463,37 +460,17 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
 
 /*! Create a minimal stack by mapping a zeroed page at the top of
     user virtual memory. */
-static bool setup_stack(void **esp) {
-    uint8_t *kpage;
-    bool success = false;
+static void setup_stack(void **esp) {
+    struct hash *pagetable = &thread_current()->pagetable;
+    void *address = (void *)((uint8_t *) PHYS_BASE) - PGSIZE;
+    
+    // Set up allocation of initial stack frame
+    pagetable_install_allocation(pagetable, address);
 
-    kpage = frametable_create_page(PAL_ZERO);
-    if (kpage != NULL) {
-        success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-        if (success)
-            *esp = PHYS_BASE;
-        else
-            palloc_free_page(kpage);
-    }
-    return success;
+    // Eagerly load stack frame
+    pagetable_load_page(pagetable_info_for_address(pagetable, address));
+    
+    // Set up stack pointer
+    *esp = PHYS_BASE;
 }
 
-// TODO: REMOVE!!!
-
-/*! Adds a mapping from user virtual address UPAGE to kernel
-    virtual address KPAGE to the page table.
-    If WRITABLE is true, the user process may modify the page;
-    otherwise, it is read-only.
-    UPAGE must not already be mapped.
-    KPAGE should probably be a page obtained from the user pool
-    with palloc_get_page().
-    Returns true on success, false if UPAGE is already mapped or
-    if memory allocation fails. */
-static bool install_page(void *upage, void *kpage, bool writable) {
-    struct thread *t = thread_current();
-
-    /* Verify that there's not already a page at that virtual
-       address, then map our page there. */
-    return (pagedir_get_page(t->pagedir, upage) == NULL &&
-            pagedir_set_page(t->pagedir, upage, kpage, writable));
-}
