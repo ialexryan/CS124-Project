@@ -162,12 +162,21 @@ struct thread {
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
+Our procedure for this is very easy, since our frametable is an array.
+Given a kernel virtual address that corresponds to a physical address,
+we just convert it to a physical address with the vtop() function and
+divide the physical address by PGSIZE to figure out which 4096-byte frame
+the address refers to. We then return that index in our frametable array.
 
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+When our eviction algorithm checks or sets the accessed bit, it does so
+on both the kernel page and the user page that point to that frame.
+We keep a user_vaddr property on our frame_info struct for precisely
+this reason.
 
-WE DON'T
+TODO: ALSO FIX THIS IN page.c (_pagetable_evict_page_to_file)
 
 ---- SYNCHRONIZATION ----
 
@@ -180,6 +189,16 @@ THEY AREN'T
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
+We chose to use an array for our frametable since we knew it
+would never need to be resized, would usually be full, and would
+probably only contain a small number of elements (usually 1024).
+The array setup also allowed us to very easily locate the frame
+that corresponds to a kernel virtual address.
+We also have list_elem's on the frame structs to keep track of
+the order our eviction algorithm thinks of the frames as being in.
+
+TODO: talk about data structure for supplementary page table?
+
 
 		       PAGING TO AND FROM DISK
 		       =======================
