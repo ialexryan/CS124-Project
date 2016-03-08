@@ -200,8 +200,6 @@ on both the kernel page and the user page that point to that frame.
 We keep a user_vaddr property on our frame_info struct for precisely
 this reason.
 
-TODO: ALSO FIX THIS IN page.c (_pagetable_evict_page_to_file)
-
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
@@ -223,8 +221,14 @@ that corresponds to a kernel virtual address.
 We also have list_elem's on the frame structs to keep track of
 the order our eviction algorithm thinks of the frames as being in.
 
-TODO: talk about data structure for supplementary page table?
-
+We used a hash map to keep track of the page_info structs associated with
+the supplementary page table. Note that this is a per-thread mapping. This
+allows us to, given a virtual address, look up the associated page info. In
+a page fault, we use this to load the required page into memory. We are able
+to specify on the page_info struct the method for loading data such that we can
+support both files and swap. We use a union to keep track of either file data
+or swap data depending on the type of page. Note that each page_info struct is
+malloc'd so it can be dynamically allocated.
 
 		       PAGING TO AND FROM DISK
 		       =======================
@@ -250,6 +254,14 @@ send that frame to the back of the eviction queue.
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
+
+When a process P obtains a frame from the frametable, the frametable must first
+decide a page to evict. Once it does so, it calls the evict page method with
+this page which handles writing the page to file/swap. This method also updates
+the page's state property to be EVICTED_STATE so that Q can tell that the page
+is no longer present. Further, we update the hardware page table on eviction
+so that we'll page fault now that the page is not present, so we can load the
+page into memory in the page fault handler.
 
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
@@ -299,7 +311,8 @@ The frame table would find a new frame to evict if it couldn't "acquire" the
 pin and the thread would busy-wait (not ideal) if it couldn't acquire a pin
 to munmap. The global lock ensured that two threads couldn't both determine
 a page is unpinned and then pin it simultanously, though this would be better
-done with an atomic check and swap.
+done with an atomic check and swap. The implementation of this is on the
+`pagetable_pinning` branch of our repository---check it out!
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
@@ -316,6 +329,23 @@ the frame after they are done filling the frame with data.
 >> in user programs), or do you have a mechanism for "locking" frames
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
+
+We use page faults to bring in pages just as in user programs. Note that we do
+not need a locking mechanism for this because, if a page is evicted while in
+use during a system call, it'll just page fault again and get brought back into
+memory.
+
+We use our `verify_user_pointer` to check all addresses given to us through a
+system call. This will both check that it is a user virtual address and that
+the page table has an entry for it---otherwise, we kill the thread. If we plan
+to write to the pointer (such as in the read system function), we also make sure
+that the page tabel entry has the `writtable` boolean value set to true,
+otherwise we exit the thread.
+
+A slight correction to what's stated above: If no page table entry is present,
+we actually check if the pointer follows our stack-extension heuristic. If it
+does, we should not fail out since the stack frame will be extended when a page
+fault occurs.
 
 ---- RATIONALE ----
 
