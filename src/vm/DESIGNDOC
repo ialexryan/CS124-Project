@@ -204,8 +204,8 @@ TODO: ALSO FIX THIS IN page.c (_pagetable_evict_page_to_file)
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
-
-THEY AREN'T
+Our entire function that returns a new frame (including calls to our
+eviction selection algorithm) is behind a lock.
 
 ---- RATIONALE ----
 

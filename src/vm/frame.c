@@ -21,12 +21,16 @@ struct frame_info *frametable;
 // a second chance eviction algorithm.
 struct list frame_eviction_queue;
 
+struct lock frame_lock;
+
 void frametable_init(void) {
 	// init_ram_pages is the number of 4KB pages aka frames in physical RAM
 	int frametable_size_in_bytes = init_ram_pages * sizeof(struct frame_info);
     frametable = malloc(frametable_size_in_bytes);
 
     list_init(&frame_eviction_queue);
+
+    lock_init(&frame_lock);
 }
 
 // Takes a kernel virtual address and returns a frame_info struct
@@ -86,6 +90,8 @@ static struct frame_info* choose_frame_for_eviction(void) {
 
 // Creates a new page with the given flags, returning a pointer to this page.
 void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
+    lock_acquire(&frame_lock);
+
     // Try to get a new page from palloc
     // page is a kernel virtual address
     void *page = palloc_get_page(flags | PAL_USER);
@@ -120,6 +126,7 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     // No particular reason to be here, but where else :)?
     ASSERT(page == page_for_frame(frame_for_page(page)));
     
+    lock_release(&frame_lock);
     return page;
 }
 
