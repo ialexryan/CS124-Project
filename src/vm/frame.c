@@ -3,7 +3,7 @@
 #include <list.h>
 #include <stdio.h>
 #include "threads/loader.h"
-#include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
@@ -24,8 +24,7 @@ struct list frame_eviction_queue;
 void frametable_init(void) {
 	// init_ram_pages is the number of 4KB pages aka frames in physical RAM
 	int frametable_size_in_bytes = init_ram_pages * sizeof(struct frame_info);
-	int frametable_size_in_pages = pg_count(frametable_size_in_bytes);
-	frametable = palloc_get_multiple(0, frametable_size_in_pages);
+    frametable = malloc(frametable_size_in_bytes);
 
     list_init(&frame_eviction_queue);
 }
