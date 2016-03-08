@@ -338,7 +338,6 @@ the frame after they are done filling the frame with data.
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
 
-<<<<<<< HEAD
 We use page faults to bring in pages just as in user programs. Note that we do
 not need a locking mechanism for this because, if a page is evicted while in
 use during a system call, it'll just page fault again and get brought back into
@@ -355,8 +354,6 @@ A slight correction to what's stated above: If no page table entry is present,
 we actually check if the pointer follows our stack-extension heuristic. If it
 does, we should not fail out since the stack frame will be extended when a page
 fault occurs.
-=======
->>>>>>> 83da89e7f46e92aa4b4bbe218596975e797de5ab
 
 ---- RATIONALE ----
 
