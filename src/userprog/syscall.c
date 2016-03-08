@@ -13,13 +13,14 @@
 #include "process.h"
 #include "threads/vaddr.h"
 #include "vm/page.h"
+#include "userprog/exception.h"
 
 static void syscall_handler(struct intr_frame *);
 
 #define GET_ARG(type, f, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
 #define ARG(type, name, f, n) type name = ({ \
 void *p = ((uint32_t *)((f)->esp) + (n)); \
-verify_user_pointer(p, false); \
+verify_user_pointer(p, NULL, false); \
 *(type *)p; \
 })
 #define RET(value, f) ({ ((f)->eax = (uint32_t)(value)); return; })
@@ -40,26 +41,25 @@ static struct file* get_file_pointer_for_fd(int fd) {
     }
 }
 
-static bool is_user_pointer_good(void* p, bool writable) {
+static void verify_user_pointer(void *p, struct intr_frame *f, bool writable) {
     // Break out early if this is not a user virtual address
-    if (!is_user_vaddr(p)) return false;
+    if (!is_user_vaddr(p)) thread_exit();
     
     struct hash *pagetable = &thread_current()->pagetable;
     struct page_info *page = pagetable_info_for_address(pagetable, p);
     
-    // If this page doesn't exist in user memory, don't access it.
-    if (page == NULL) return false;
-    
-    // If the page needs be writable, break out if this page isn't writable
-    if (writable) if (page->writable == false) return false;
-    
-    // Otherwise, the user can write to this
-    return true;
-}
-
-static void verify_user_pointer(void* p, bool writable) {
-    if (!is_user_pointer_good(p, writable)) {
-        thread_exit();
+    // Check if the page exists in memory
+    if (page == NULL) {
+        // If this page doesn't exist in user memory, don't access it...
+        // ...unless it looks like a stack access.
+        if (!(f != NULL && should_extend_stack(f, p))) {
+            thread_exit();
+        }
+    } else {
+        // This page exists in memeory
+        
+        // If the page needs be writable, break out if this page isn't writable
+        if (writable) if (page->writable == false) thread_exit();
     }
 }
 
@@ -89,7 +89,7 @@ void sys_exit(struct intr_frame *f) {
 
 void sys_exec(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
-    verify_user_pointer((void *)file, false);
+    verify_user_pointer((void *)file, f, false);
     
     tid_t child_tid = process_execute(file);
 
@@ -122,7 +122,7 @@ void sys_wait(struct intr_frame *f) {
 void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
-    verify_user_pointer((void *)file, false);
+    verify_user_pointer((void *)file, f, false);
 
     if (file == NULL) {
         thread_exit();
@@ -133,13 +133,13 @@ void sys_create(struct intr_frame *f) {
 
 void sys_remove(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
-    verify_user_pointer((void *)file, false);
+    verify_user_pointer((void *)file, f, false);
     RET(filesys_remove(file), f);
 }
 
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
-    verify_user_pointer((void *)file_name, false);
+    verify_user_pointer((void *)file_name, f, false);
 
     if (file_name == NULL) RET(-1, f);
 
@@ -179,7 +179,7 @@ void sys_read(struct intr_frame *f ) {
     ARG(int, fd, f, 1);
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-    verify_user_pointer((void *)buffer, true);
+    verify_user_pointer((void *)buffer, f, true);
 
     if (fd == STDOUT_FILENO) RET(-1, f);
 
@@ -203,7 +203,7 @@ void sys_write(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-    verify_user_pointer((void *)buffer, false);
+    verify_user_pointer((void *)buffer, f, false);
 
     if (fd == STDIN_FILENO) RET(-1, f);
 

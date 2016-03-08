@@ -1,6 +1,9 @@
 #ifndef USERPROG_EXCEPTION_H
 #define USERPROG_EXCEPTION_H
 
+#include <stdbool.h>
+#include "threads/interrupt.h"
+
 /*! Page fault error code bits that describe the cause of the exception. @{ */
 #define PF_P 0x1    /*!< 0: not-present page. 1: access rights violation. */
 #define PF_W 0x2    /*!< 0: read, 1: write. */
@@ -12,6 +15,8 @@
 
 void exception_init(void);
 void exception_print_stats(void);
+
+bool should_extend_stack(struct intr_frame *f, void *access);
 
 #endif /* userprog/exception.h */
 

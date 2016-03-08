@@ -4,7 +4,6 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/syscall.h"
-#include "threads/interrupt.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
 #include "vm/page.h"
@@ -154,21 +153,14 @@ static void page_fault(struct intr_frame *f) {
             // This page already exists in our page table--load it!
             pagetable_load_page(pi);
         } else {
-            ASSERT(f->esp <= PHYS_BASE);
             // We didn't find a page for that address!
             // Check if this might be a good time to extend the stack
-            if (fault_vaddr > (void *)(f->esp - 64) &&
-                fault_vaddr < PHYS_BASE) {
-                // Looks like this fits our heuristic for a stack access
-                // Do we have space for a bigger stack?
-                if (PHYS_BASE - fault_vaddr > MAX_STACK_SIZE) {
-                  // We stop growing the stack at 8MB
-                  sys_exit_helper(-1);
-                }
+            if (should_extend_stack(f, fault_vaddr)) {
                 // Allocate another page and load it
                 pagetable_install_and_load_allocation(&t->pagetable,
                                                       pg_round_down(fault_vaddr));
-            } else {
+            }
+            else {
                 // fault_vaddr is not mapped - exit with failure
                 // printf("DEBUG: tried to load a user vaddr %p that isn't mapped\n", fault_vaddr);
                 sys_exit_helper(-1);
@@ -185,3 +177,22 @@ static void page_fault(struct intr_frame *f) {
     }
 }
 
+bool should_extend_stack(struct intr_frame *f, void *access) {
+    ASSERT(f->esp <= PHYS_BASE);
+    
+    // Let's see if this looks like stack growth by checking if this
+    // is close enough to the stack area or within it.
+    if (access > (void *)(f->esp - 64) && access < PHYS_BASE) {
+        // It does! Let's also make sure the stack isn't too big
+        if (PHYS_BASE - access > MAX_STACK_SIZE) {
+            // We stop growing the stack at 8MB
+            sys_exit_helper(-1);
+        } else {
+            return true; // All is good
+        }
+    } else {
+        // Does not fit our heuristic for stack growth
+        return false;
+    }
+
+}
