@@ -275,7 +275,31 @@ WE DON'T
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
 
-WE DON'T
+We don't need to prevent Q from accessing the frame during the eviction
+process (since eviction simply involves copying data from the frame onto
+disk). What matters is that we prevent accesses AFTER the frame has been
+reassigned to another thread (since this is when the data on the frame can
+change), so we do this by setting the state of the page to EVICTED_STATE
+after we finish copying the data to disk.
+
+We do not have a race between P evicting Q's frame and Q faulting the
+frame back in because a frame that is fully evicted is set to the state
+EVICTED_STATE only after the data is transferred to disk, so we'll
+correctly be able to copy this data to a new frame. Note that we use a
+lock on the function `frametable_create_page` so there will not be races
+with the frametable.
+
+We do however have a race condition with eviction that we unsuccessfully
+tried to fix. This occurs when a thread simultanously munmaps a file while
+the frametable tries to evict the corresponding frame. We attempted to fix
+this by placing a pinned property of frame_info structs and using a global
+pin-acquiring lock such that a thread cannot evict a page without first
+acquiring this lock, "acquiring" the pin, and releasing the global lock.
+The frame table would find a new frame to evict if it couldn't "acquire" the
+pin and the thread would busy-wait (not ideal) if it couldn't acquire a pin
+to munmap. The global lock ensured that two threads couldn't both determine
+a page is unpinned and then pin it simultanously, though this would be better
+done with an atomic check and swap.
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
