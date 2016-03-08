@@ -371,7 +371,7 @@ to write to the pointer (such as in the read system function), we also make sure
 that the page tabel entry has the `writtable` boolean value set to true,
 otherwise we exit the thread.
 
-A slight correction to what's stated above: If no page table entry is present,
+A slight clarification to what's stated above: If no page table entry is present,
 we actually check if the pointer follows our stack-extension heuristic. If it
 does, we should not fail out since the stack frame will be extended when a page
 fault occurs.
@@ -384,7 +384,18 @@ fault occurs.
 >> but allows for high parallelism.  Explain where your design falls
 >> along this continuum and why you chose to design it this way.
 
-NO LOCKS
+We tried to fall in the middle of this continuum. Instead of making separate
+locks to access each data structure we use in swap.c, for example, we simply
+only allow one swap read or write at a time. This ensures that the swap table
+is kept in sync with the actual swap disk in an easily verifiable way, and
+likely won't keep any processes waiting for much longer than it would otherwise,
+since only one page (4096 bytes) is read or written at a time.
+
+The frametable takes the same approach of using a single lock for a certain
+subsystem but not for the entire virtual memory system. Only one process can
+ask for a new frame at a time, ensuring that our eviction queue stays in sync
+and in order, and that if a page has to be evicted that another process
+doesn't snatch up the newly-freed memory.
 
 			 MEMORY MAPPED FILES
 			 ===================
