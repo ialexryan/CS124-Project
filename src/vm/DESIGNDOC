@@ -49,7 +49,9 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-   We spent approximately 70 hours *each* on this assignment.
+   We spent approximately 70 hours each on this assignment, for a total
+   of 140 hours over the course of six days.
+
    8pm-4am (8hr) Wednesday night
    7pm-noon  (17hr) Thursday night + Friday morning
    6pm-10:30am (16.5hr) Friday night + Saturday morning
@@ -61,10 +63,10 @@ which parts.
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
-Jaden designed+implemented the supplemental page table, mmap functions,
+Jaden designed and implemented the supplemental page table, mmap functions,
 automatic stack extension, and lazily loading/writing back files.
-Alex designed+implemented the frame table, swap system, page fault handler,
-eviction algorithm, and pinning.
+Alex designed and implemented the frame table, swap system, page fault
+handler, eviction algorithm, and pinning.
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
