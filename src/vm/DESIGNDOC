@@ -184,6 +184,7 @@ struct thread {
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
+
 Our procedure for this is very easy, since our frametable is an array.
 Given a kernel virtual address that corresponds to a physical address,
 we just convert it to a physical address with the vtop() function and
@@ -193,6 +194,7 @@ the address refers to. We then return that index in our frametable array.
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
+
 When our eviction algorithm checks or sets the accessed bit, it does so
 on both the kernel page and the user page that point to that frame.
 We keep a user_vaddr property on our frame_info struct for precisely
@@ -204,6 +206,7 @@ TODO: ALSO FIX THIS IN page.c (_pagetable_evict_page_to_file)
 
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
+
 Our entire function that returns a new frame (including calls to our
 eviction selection algorithm) is behind a lock.
 
@@ -211,6 +214,7 @@ eviction selection algorithm) is behind a lock.
 
 >> A5: Why did you choose the data structure(s) that you did for
 >> representing virtual-to-physical mappings?
+
 We chose to use an array for our frametable since we knew it
 would never need to be resized, would usually be full, and would
 probably only contain a small number of elements (usually 1024).
@@ -235,6 +239,7 @@ TODO: talk about data structure for supplementary page table?
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
+
 We implemented a simple second-chance eviction algorithm. Whenever
 a frame is populated by a page it is added to the back of our
 frame_eviction_queue list. When we need to evict a page we choose
@@ -276,6 +281,7 @@ WE DON'T
 >> the file system or swap.  How do you ensure that a second process Q
 >> cannot interfere by e.g. attempting to evict the frame while it is
 >> still being read in?
+
 When our frametable_create_page function returns a frame, it is pinned by
 default. Our eviction algorithm respects that and will not choose that
 frame for eviction. Any function that calls frametable_create_page unpins
