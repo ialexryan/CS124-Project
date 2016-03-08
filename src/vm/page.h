@@ -6,6 +6,8 @@
 #include "filesys/file.h"
 #include "threads/vaddr.h"
 
+void pagetable_init(void);
+
 // Index that indicates the file should be discarded instead of swapped.
 #define DO_NOT_SWAP_INDEX (-1)
 
@@ -36,6 +38,8 @@ struct page_info {
         // `restoration_method`.
         LOADED_STATE
     } state : 2;
+    
+    bool pinned;
 
     // The method by which the page should be loaded on first load.
     enum {
@@ -129,6 +133,8 @@ void pagetable_install_allocation(struct hash *pagetable, void *address);
 void pagetable_install_and_load_allocation(struct hash *pagetable, void *address);
 
 void pagetable_uninstall_all(struct hash *pagetable);
-void pagetable_uninstall(struct page_info *page);
+
+struct page_info *pagetable_try_acquire_info_for_address(struct hash *pagetable, void *address);
+void release_page(struct page_info *page);
 
 #endif /* vm/page.h */

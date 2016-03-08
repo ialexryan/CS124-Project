@@ -98,17 +98,26 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     if (page == NULL) {
         // We were out of space!
 
-        // Choose a frame to evict
-        struct frame_info* evict_me_f = choose_frame_for_eviction();
-        ASSERT(evict_me_f->user_vaddr);
-        ASSERT(is_user_vaddr(evict_me_f->user_vaddr));
-        struct page_info* evict_me_pi = pagetable_info_for_address(&(thread_current()->pagetable), evict_me_f->user_vaddr);
-        ASSERT(evict_me_pi->virtual_address == evict_me_f->user_vaddr);
-        ASSERT(evict_me_pi != NULL);
-        pagetable_evict_page(evict_me_pi);
+        struct page_info* evict_me_pi = NULL;
+        struct frame_info* evict_me_f = NULL;
+        while (evict_me_pi == NULL) {
+            // Choose a frame to evict
+            evict_me_f = choose_frame_for_eviction();
+            ASSERT(evict_me_f->user_vaddr);
+            ASSERT(is_user_vaddr(evict_me_f->user_vaddr));
+            evict_me_pi = pagetable_try_acquire_info_for_address(
+                 &(thread_current()->pagetable), evict_me_f->user_vaddr);
+            ASSERT(evict_me_pi->virtual_address == evict_me_f->user_vaddr);
+            if (evict_me_pi == NULL) continue;
+            
+            ASSERT(evict_me_pi != NULL);
+            pagetable_evict_page(evict_me_pi);
+            release_page(evict_me_pi);
 
-        // We've freed up some space!
-        page = page_for_frame(evict_me_f);
+            // We've freed up some space!
+            page = page_for_frame(evict_me_f);
+        }
+        
     }
  
     // Alright, we've finally gotten a valid page.

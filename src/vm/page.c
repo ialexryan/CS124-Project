@@ -10,6 +10,50 @@
 #include "vm/frame.h"
 #include "vm/swap.h"
 
+struct lock page_lock;
+
+void pagetable_init(void) {
+    lock_init(&page_lock);
+}
+
+struct page_info *pagetable_try_acquire_info_for_address(struct hash *pagetable, void *address) {
+    lock_acquire(&page_lock);
+    struct page_info *page = pagetable_info_for_address(pagetable, address);
+
+    if (page->pinned) {
+        lock_release(&page_lock);
+        return NULL;
+    } else {
+        page->pinned = true;
+        lock_release(&page_lock);
+        return page;
+    }
+}
+
+void release_page(struct page_info *page) {
+    // No need to acquire lock to say we're done with it
+    page->pinned = false;
+}
+
+static void acquire_page_on_current_thread(struct page_info *page) {
+    // Must only be called by current thread
+    ASSERT(page == pagetable_info_for_address(&thread_current()->pagetable,
+                                      page->virtual_address));
+    
+    // Loop until we've pinned it
+    while (true) {
+        lock_acquire(&page_lock);
+        if (page->pinned) {
+            // Wait until its unpinned
+            lock_release(&page_lock);
+        } else {
+            page->pinned = true;
+            lock_release(&page_lock);
+            break;
+        }
+    }
+}
+
 // MARK: Page Table Element
 
 bool page_less(const struct hash_elem *a,
@@ -259,6 +303,7 @@ static void _pagetable_install_page(struct hash *pagetable,
     
     // Final setup
     page->state = UNINITIALIZED_STATE;
+    page->pinned = false;
     
     // Insert the page into the pagetable
     struct hash_elem *existing = hash_insert(pagetable, &page->hash_elem);
@@ -386,6 +431,8 @@ void pagetable_install_file(struct hash *pagetable,
 
 // Uninstall a single page of a file.
 static void _pagetable_uninstall_file_page(struct page_info *page, bool cleanup) {
+    acquire_page_on_current_thread(page);
+    
     // Clean up the page memory
     switch (page->state) {
         case UNINITIALIZED_STATE:
@@ -417,6 +464,7 @@ static void _pagetable_uninstall_file(struct page_info *page, bool cleanup);
 // are part of this file. Assumes that `page` is the first page of
 // the file that was installed using `pagetable_install_file`.
 void pagetable_uninstall_file(struct page_info *page) {
+    acquire_page_on_current_thread(page);
     _pagetable_uninstall_file(page, true);
 }
 
@@ -474,6 +522,8 @@ static void _pagetable_uninstall_allocation(struct page_info *page, bool cleanup
     // Don't check that it was zero initialized, because this can
     // also be used to uninstall segment memory.
     
+    acquire_page_on_current_thread(page);
+    
     // Clean up the page memory
     switch (page->state) {
         case UNINITIALIZED_STATE:
@@ -484,7 +534,7 @@ static void _pagetable_uninstall_allocation(struct page_info *page, bool cleanup
             delete_swapped_page(page);
             break;
             
-        case LOADED_STATE:
+        case LOADED_STATE:            
             // Evict the file without writing it to swap
             // Let the frame table know we're no longer using this frame
             page->swap_info.swap_index = DO_NOT_SWAP_INDEX;
@@ -502,14 +552,6 @@ static void _pagetable_uninstall_allocation(struct page_info *page, bool cleanup
 // MARK: Uninstallation
 
 static void _pagetable_uninstall(struct page_info *page, bool cleanup);
-
-// Uninstall a single page from memory. Note that this will break a file
-// chain, so it should not be used unless mass-uninstalling pages.
-void pagetable_uninstall(struct page_info *page) {
-    // Uninstall the page from the pagetable
-    // Clean up the page afterwards
-    _pagetable_uninstall(page, true);
-}
 
 // Must be called on same thread that page is on...
 static void _pagetable_cleanup_page(struct page_info *page) {
@@ -551,6 +593,5 @@ void uninstall_page(struct hash_elem *e, void *aux UNUSED) {
 }
 
 void pagetable_uninstall_all(struct hash *pagetable) {
-    // This does not yet work reliably due to some stack bug.
     hash_clear(pagetable, uninstall_page);
 }
