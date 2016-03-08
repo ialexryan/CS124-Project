@@ -551,6 +551,6 @@ void uninstall_page(struct hash_elem *e, void *aux UNUSED) {
 }
 
 void pagetable_uninstall_all(struct hash *pagetable) {
-    // This does not yet work reliably due to some stack bug.
+    // Uninstalls all the pages in the page table
     hash_clear(pagetable, uninstall_page);
 }
