@@ -350,8 +350,25 @@ we use FILE_INITIALIZATION and FILE_RESTORATION.
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+Memory mapped files integrate into the virtual memory subsystem by specifying
+in the page_info struct that the page is initialized and restored (thus also
+evicted) via a file, and by including the information about the file on the
+struct. When a page is loaded or evicted, the initialization/restoration method
+is checked to determine how to do so. In the case of file initialization
+and restoration, the file is loaded from disk as specified when a page is
+accessed and the file is saved to disk when it is evicted (but only if the page
+was dirtied). Swap pages handle loading and eviction by moving to the swap
+partition instead, so we check the type of initialization/restoration for the
+page and follow the correct code path based on that.
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+We can determine this by checking whether the supp. page table already contains
+an entry for that requested virtual address. If the page table has such an entry,
+we know its an overlap. We also check that the address lies on a page boundary.
+Since every page that a process uses is loaded into our supplementry page table,
+we will always detect overlaps.
 
 ---- RATIONALE ----
 
@@ -361,6 +378,23 @@ we use FILE_INITIALIZATION and FILE_RESTORATION.
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+In our system, a mmap'd file has its page info set as follows:
+initialization_method = FILE_INITIALIZATION
+restoration_method = FILE_RESTORATION
+
+On the other hand, a data page from the executable has its
+page info set as follows:
+
+initialization_method = FILE_INITIALIZATION
+restoration_method = SWAP_RESTORATION
+
+When we need to load a page into memory, if the page_info struct is set to
+UNINITIALIZED_STATE, we will use the initialization_method to load the file.
+Upon eviction, we use the restoration_method to save the file (save to file for
+FILE_RESTORATION and save to swap for SWAP_RESTORATION) and set the state to
+EVICTED_STATE. When we try to load something in this state, we use the
+restoration_method to load it.
 
 			   SURVEY QUESTIONS
 			   ================
