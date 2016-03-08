@@ -38,12 +38,22 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
+   We spent approximately 70 hours *each* on this assignment.
+   8pm-4am (8hr) Wednesday night
+   7pm-noon  (17hr) Thursday night + Friday morning
+   6pm-10:30am (16.5hr) Friday night + Saturday morning
+   5pm-1am + 1d (32hr) Saturday night + all of Sunday
+   3pm-1am (10hr) Monday night
+   (This totals to more than 70 but we rounded down to account for
+   getting meals while working on the assignment.)
+
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
-Jaden implemented the supplemental page table and automatic stack extension.
-Additionally, Jaden designed the page_info data structure and wrote the mmap
-functions along with the code that lazily loads files and evicts them to disk.
+Jaden designed+implemented the supplemental page table, mmap functions,
+automatic stack extension, and lazily loading/writing back files.
+Alex designed+implemented the frame table, swap system, page fault handler,
+eviction algorithm, and pinning.
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -446,18 +456,19 @@ penalized.  We can't fix things until we know about them.  :-)
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
 
-It was difficult to get started on the assingment. More could have been done
+It was difficult to get started on the assignment. More could have been done
 to compare and contrast the supplementary page table, the page table, and
 the frame table. It was also very difficult to debug this assignment. Finally,
-this assingment was just monstrously huge; it was a daughting task to complete
+this assignment was just monstrously huge; it was a daunting task to complete
 the entire thing, so it would've been nice to have it broken up into multiple
-smaller subtasks.
+smaller subtasks. Having three one-week projects would have been *vastly* better.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
 
-I definitely understand supplemental page tables, frame tables, mmap, etc.
-better, but not better enough to justify the amount of time spent on it.
+We definitely understand supplemental page tables, frame tables, mmap, swapping,
+and virtual memory in general better, but not *nearly* better enough to justify
+the amount of time we spent getting there.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
@@ -466,7 +477,7 @@ better, but not better enough to justify the amount of time spent on it.
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
-It felt very unguided at the start, though its hard to pinpoint what should
+It felt very unguided at the start, though it's hard to pinpoint what should
 have been improved now that I've completed the assignment and understand it.
 
 >> Do you have any suggestions for the instructor and/or TAs to more
