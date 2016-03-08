@@ -6,7 +6,7 @@
 #include "threads/vaddr.h"
 
 static struct bitmap* swapmap; // This has an "occupied" boolean bit for
-                        // each 4KB page in the swap file.
+                               // each 4KB page in the swap file.
 static struct block* swap_block;
 static struct lock swap_lock;
 

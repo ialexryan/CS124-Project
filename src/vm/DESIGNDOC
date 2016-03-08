@@ -239,6 +239,9 @@ malloc'd so it can be dynamically allocated.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+static struct bitmap* swapmap; // This has an "occupied" boolean bit for
+                               // each 4KB page in the swap file.
+
 ---- ALGORITHMS ----
 
 >> B2: When a frame is required but none is free, some frame must be
@@ -270,7 +273,7 @@ page into memory in the page fault handler.
 We considered any access between the user process's `esp` and `PHYS_BASE`
 to be a valid stack access. If the access happens to be below `esp`, it is
 not necessarily invalid. We will have a 64 byte buffer zone below the stack
-pointer such that any access in this zone will also count as extensions of
+pointer such that any access in this zone will also cause an extension of
 the stack.
 
 ---- SYNCHRONIZATION ----
@@ -279,8 +282,13 @@ the stack.
 >> particular, explain how it prevents deadlock.  (Refer to the
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
-
-WE DON'T
+Deadlock isn't possible in our system because the synchronization is
+confined to a few specific areas that do not depend on each other.
+The functions that read, write, and delete swap pages are all
+synchronized under a single lock, and they don't call each other
+or any other locking functions. The function that allocates new frames,
+including eviction if needed, is also behind a lock and doesn't
+depend on any functions that require allocating new frames.
 
 >> B6: A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
@@ -330,6 +338,7 @@ the frame after they are done filling the frame with data.
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
 
+<<<<<<< HEAD
 We use page faults to bring in pages just as in user programs. Note that we do
 not need a locking mechanism for this because, if a page is evicted while in
 use during a system call, it'll just page fault again and get brought back into
@@ -346,6 +355,8 @@ A slight correction to what's stated above: If no page table entry is present,
 we actually check if the pointer follows our stack-extension heuristic. If it
 does, we should not fail out since the stack frame will be extended when a page
 fault occurs.
+=======
+>>>>>>> 83da89e7f46e92aa4b4bbe218596975e797de5ab
 
 ---- RATIONALE ----
 
