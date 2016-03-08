@@ -5,17 +5,12 @@
 #include <stdbool.h>
 #include "page.h"
 
+// Each instance of this struct stores metadata about one physical frame
 struct frame_info {
     bool is_user_page;
     bool is_pinned;
     void* user_vaddr;
     struct list_elem eviction_queue_list_elem;
-    
-    // TODO: Add pointer to supplementry page table entry
-    //       so that we can update it when we evict it from
-    //       physical memory.
-    //   OR: Maybe just to the thread?
-    //    Q: What happens when the thread dies?
 };
 
 void frametable_init(void);
