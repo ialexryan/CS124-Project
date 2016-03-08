@@ -12,13 +12,14 @@
 #include "vm/page.h"
 #include "process.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 
 static void syscall_handler(struct intr_frame *);
 
 #define GET_ARG(type, f, n) (*(type *)((uint32_t *)((f)->esp) + (n)))
 #define ARG(type, name, f, n) type name = ({ \
 void *p = ((uint32_t *)((f)->esp) + (n)); \
-verify_user_pointer(p); \
+verify_user_pointer(p, false); \
 *(type *)p; \
 })
 #define RET(value, f) ({ ((f)->eax = (uint32_t)(value)); return; })
@@ -39,12 +40,25 @@ static struct file* get_file_pointer_for_fd(int fd) {
     }
 }
 
-static bool is_user_pointer_good(void* p) {
-    return is_user_vaddr(p) && pagedir_get_page(thread_current()->pagedir, p) != NULL;
+static bool is_user_pointer_good(void* p, bool writable) {
+    // Break out early if this is not a user virtual address
+    if (!is_user_vaddr(p)) return false;
+    
+    struct hash *pagetable = &thread_current()->pagetable;
+    struct page_info *page = pagetable_info_for_address(pagetable, p);
+    
+    // If this page doesn't exist in user memory, don't access it.
+    if (page == NULL) return false;
+    
+    // If the page needs be writable, break out if this page isn't writable
+    if (writable) if (page->writable == false) return false;
+    
+    // Otherwise, the user can write to this
+    return true;
 }
 
-static void verify_user_pointer(void* p) {
-    if (!is_user_pointer_good(p)) {
+static void verify_user_pointer(void* p, bool writable) {
+    if (!is_user_pointer_good(p, writable)) {
         thread_exit();
     }
 }
@@ -75,7 +89,7 @@ void sys_exit(struct intr_frame *f) {
 
 void sys_exec(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
-    verify_user_pointer((void *)file);
+    verify_user_pointer((void *)file, false);
     
     tid_t child_tid = process_execute(file);
 
@@ -108,7 +122,7 @@ void sys_wait(struct intr_frame *f) {
 void sys_create(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
     ARG(unsigned, initial_size, f, 2);
-    verify_user_pointer((void *)file);
+    verify_user_pointer((void *)file, false);
 
     if (file == NULL) {
         thread_exit();
@@ -119,13 +133,13 @@ void sys_create(struct intr_frame *f) {
 
 void sys_remove(struct intr_frame *f) {
     ARG(const char *, file, f, 1);
-    verify_user_pointer((void *)file);
+    verify_user_pointer((void *)file, false);
     RET(filesys_remove(file), f);
 }
 
 void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
-    verify_user_pointer((void *)file_name);
+    verify_user_pointer((void *)file_name, false);
 
     if (file_name == NULL) RET(-1, f);
 
@@ -165,7 +179,7 @@ void sys_read(struct intr_frame *f ) {
     ARG(int, fd, f, 1);
     ARG(void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-    verify_user_pointer((void *)buffer);
+    verify_user_pointer((void *)buffer, true);
 
     if (fd == STDOUT_FILENO) RET(-1, f);
 
@@ -189,7 +203,7 @@ void sys_write(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(const void *, buffer, f, 2);
     ARG(unsigned, size, f, 3);
-    verify_user_pointer((void *)buffer);
+    verify_user_pointer((void *)buffer, false);
 
     if (fd == STDIN_FILENO) RET(-1, f);
 
@@ -245,6 +259,7 @@ void sys_close(struct intr_frame *f) {
 void sys_mmap(struct intr_frame *f) {
     ARG(int, fd, f, 1);
     ARG(void *, address, f, 2);
+
     struct hash *pagetable = &thread_current()->pagetable;
     
     // Make sure the file descriptor is not STDIN or STDOUT
@@ -252,6 +267,9 @@ void sys_mmap(struct intr_frame *f) {
     
     // Make sure address is not zero
     if (!address) RET(-1, f);
+    
+    // Make sure the address is a virtual address
+    if (!is_user_vaddr(address)) RET(-1, f);
     
     // Make sure address is on a page boundary
     if (pg_ofs(address) != 0) RET(-1, f);
@@ -270,11 +288,11 @@ void sys_mmap(struct intr_frame *f) {
 }
 
 void sys_munmap(struct intr_frame *f) {
-    ARG(int, mapid UNUSED, f, 1);
-    
+    ARG(int, mapid, f, 1);
+
     struct hash *pagetable = &thread_current()->pagetable;
     struct page_info *page = pagetable_info_for_address(pagetable, (void *)mapid);
-
+    
     if (page != NULL) {
         pagetable_uninstall_file(page);
     }

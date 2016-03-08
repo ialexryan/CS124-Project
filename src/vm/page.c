@@ -178,6 +178,8 @@ static void *_pagetable_load_page_zero_initialized(struct page_info *page) {
 
 // MARK: Page Eviction
 
+static void _pagetable_cleanup_page(struct page_info *page);
+
 static void _pagetable_evict_page_to_swap(struct page_info *page);
 static void _pagetable_evict_page_to_file(struct page_info *page);
 
@@ -380,7 +382,7 @@ void pagetable_install_file(struct hash *pagetable,
 }
 
 // Uninstall a single page of a file.
-static void _pagetable_uninstall_file_page(struct page_info *page) {
+static void _pagetable_uninstall_file_page(struct page_info *page, bool cleanup) {
     // Clean up the page memory
     switch (page->state) {
         case UNINITIALIZED_STATE:
@@ -402,14 +404,20 @@ static void _pagetable_uninstall_file_page(struct page_info *page) {
     // Close the file
     file_close(page->file_info.file);
     
-    // Free the page
-    free(page);
+    // Cleanup, if requested
+    if (cleanup) _pagetable_cleanup_page(page);
 }
+
+static void _pagetable_uninstall_file(struct page_info *page, bool cleanup);
 
 // Uninstall a file from virtual memory by unmapping all pages that
 // are part of this file. Assumes that `page` is the first page of
 // the file that was installed using `pagetable_install_file`.
 void pagetable_uninstall_file(struct page_info *page) {
+    _pagetable_uninstall_file(page, true);
+}
+
+static void _pagetable_uninstall_file(struct page_info *page, bool cleanup) {
     // Sanity checks
     ASSERT(page->initialization_method == FILE_INITIALIZATION);
     ASSERT(page->restoration_method == FILE_RESTORATION);
@@ -422,7 +430,7 @@ void pagetable_uninstall_file(struct page_info *page) {
         page = page->file_info.next;
         
         // Uninstall the page
-        _pagetable_uninstall_file_page(previous);
+        _pagetable_uninstall_file_page(previous, cleanup);
     } while (page != NULL);
 }
 
@@ -457,7 +465,7 @@ void pagetable_install_allocation(struct hash *pagetable, void *address) {
 
 // Uninstall a allocated page from virtual memory. Assumes that
 // the file that was installed using `pagetable_allocate`.
-void pagetable_uninstall_allocation(struct page_info *page) {
+static void _pagetable_uninstall_allocation(struct page_info *page, bool cleanup) {
     // Sanity checks
     ASSERT(page->restoration_method == SWAP_RESTORATION);
     // Don't check that it was zero initialized, because this can
@@ -484,26 +492,43 @@ void pagetable_uninstall_allocation(struct page_info *page) {
             NOT_REACHED();
     }
     
-    // Free the page struct
-    free(page);
+    // Cleanup, if requested
+    if (cleanup) _pagetable_cleanup_page(page);
 }
 
 // MARK: Uninstallation
 
+static void _pagetable_uninstall(struct page_info *page, bool cleanup);
+
 // Uninstall a single page from memory. Note that this will break a file
 // chain, so it should not be used unless mass-uninstalling pages.
-static void _pagetable_uninstall(struct page_info *page) {
+void pagetable_uninstall(struct page_info *page) {
+    // Uninstall the page from the pagetable
+    // Clean up the page afterwards
+    _pagetable_uninstall(page, true);
+}
+
+// Must be called on same thread that page is on...
+static void _pagetable_cleanup_page(struct page_info *page) {
+    // Remove the element from the hash table and free it
+    struct hash_elem *removed = hash_delete(&thread_current()->pagetable,
+                                            &page->hash_elem);
+    ASSERT(removed == &page->hash_elem);
+    free(page);
+}
+
+static void _pagetable_uninstall(struct page_info *page, bool cleanup) {
     switch (page->restoration_method) {
         case SWAP_RESTORATION:
             // Uninstall an allocated page
-            pagetable_uninstall_allocation(page);
+            _pagetable_uninstall_allocation(page, cleanup);
             break;
             
         case FILE_RESTORATION:
             // Uninstall this single page of the file
             // Note that this will break the list, so this should
             // only be used if we're mass-uninstalling all files
-            _pagetable_uninstall_file_page(page);
+            _pagetable_uninstall_file_page(page, cleanup);
             break;
             
         default:
@@ -513,7 +538,13 @@ static void _pagetable_uninstall(struct page_info *page) {
 
 void uninstall_page(struct hash_elem *e, void *aux UNUSED) {
     struct page_info *page = hash_entry(e, struct page_info, hash_elem);
-    _pagetable_uninstall(page);
+    // Uninstall WITHOUT cleaning up
+    // Since hash_clear will take care of removal for us
+    // and it is illegal to mutate the hash during iteration
+    _pagetable_uninstall(page, false);
+    
+    // Deallocate the page since we didn't clean up
+    free(page);
 }
 
 void pagetable_uninstall_all(struct hash *pagetable) {
