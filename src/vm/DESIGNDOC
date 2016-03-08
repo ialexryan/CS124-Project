@@ -25,9 +25,20 @@ Jaden Geller <jgeller@caltech.edu>
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+We were able to get all but 6 of the tests passing, including all but 4
+of the vm tests (syn-read and syn-write from last assignment are still
+unpredictable). Unfortunately after putting in 140 combined hours
+over six days we had to cut ourselves off to go work on our other classes.
+We think additional synchronization would probably fix our remaining tests.
+We did give that approach a shot, but never ended up fixing more tests
+than we broke.
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course instructors.
+
+The Wikipedia pages for Page Replacement Algorithm and Virtual Memory were
+helpful.
 
 ---- LOGISTICS ----
 
