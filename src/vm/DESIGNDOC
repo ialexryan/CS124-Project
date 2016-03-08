@@ -336,6 +336,14 @@ NO LOCKS
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+See above in the "PAGE TABLE MANAGEMENT" section; page_info adds the relevant
+properties.
+
+Note that our page_info struct either contains swap_info, file_info, or neither
+based on the initialization_method and restoration_method. We use these fields
+to determine what to do on load and eviction. In the case of memory mapped files
+we use FILE_INITIALIZATION and FILE_RESTORATION.
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how memory mapped files integrate into your virtual
