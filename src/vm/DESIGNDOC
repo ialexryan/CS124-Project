@@ -408,8 +408,18 @@ penalized.  We can't fix things until we know about them.  :-)
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
 
+It was difficult to get started on the assingment. More could have been done
+to compare and contrast the supplementary page table, the page table, and
+the frame table. It was also very difficult to debug this assignment. Finally,
+this assingment was just monstrously huge; it was a daughting task to complete
+the entire thing, so it would've been nice to have it broken up into multiple
+smaller subtasks.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+I definitely understand supplemental page tables, frame tables, mmap, etc.
+better, but not better enough to justify the amount of time spent on it.
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
@@ -417,6 +427,9 @@ penalized.  We can't fix things until we know about them.  :-)
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+
+It felt very unguided at the start, though its hard to pinpoint what should
+have been improved now that I've completed the assignment and understand it.
 
 >> Do you have any suggestions for the instructor and/or TAs to more
 >> effectively assist students, either for future quarters or the remaining
