@@ -58,6 +58,28 @@ not required by the question.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+// `frametable` is a malloc'ed region of memory big enough to hold
+// as many frame_info structs as there are frames in physical memory.
+// Note that the frametable only contains info about the pages that are
+// currently in physical memory, not pages that have been swapped out.
+// Here, the frames are ordered exactly the same as they are laid out
+// in physical memory.
+struct frame_info *frametable;
+
+// frame_eviction_queue represents an ordering of the frames that is
+// unrelated to their ordering in physical memory. It will be used for
+// a second chance eviction algorithm.
+struct list frame_eviction_queue;
+
+// Each instance of this struct stores metadata about one physical frame
+struct frame_info {
+    bool is_user_page;
+    bool is_pinned;
+    void* user_vaddr;
+    struct list_elem eviction_queue_list_elem;
+};
+
+
 // Supplementary page info associated with a page telling us
 // how to initialize, load, and evict it.
 struct page_info {

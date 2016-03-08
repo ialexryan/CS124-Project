@@ -8,7 +8,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 
-// `frametable` is a palloc'ed region of memory big enough to hold
+// `frametable` is a malloc'ed region of memory big enough to hold
 // as many frame_info structs as there are frames in physical memory.
 // Note that the frametable only contains info about the pages that are
 // currently in physical memory, not pages that have been swapped out.
