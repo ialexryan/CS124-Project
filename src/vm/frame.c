@@ -87,7 +87,7 @@ static struct frame_info* choose_frame_for_eviction(void) {
     } while (true);
 }
 
-// Creates a new page with the given flags, returning a pointer to this page.
+// Creates a new pinned page with the given flags, returning a pointer to this page.
 void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     lock_acquire(&frame_lock);
 
@@ -115,7 +115,7 @@ void *frametable_create_page(enum palloc_flags flags) {  // PAL_USER is implied
     // Let's do any initialization needed for the frame_info entry.
     struct frame_info *frame = frame_for_page(page);
     frame->is_user_page = true;
-    frame->is_pinned = false;
+    frame->is_pinned = true;
     frame->user_vaddr = page;
 
     // Add to the end of the eviction queue

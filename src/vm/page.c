@@ -109,6 +109,9 @@ void pagetable_load_page(struct page_info *page) {
     
     // Update the page state
     page->state = LOADED_STATE;
+    // The page we got was pinned, now that it's done being initialized
+    // we need to unpin it.
+    frame_for_page(address)->is_pinned = false;
 }
 
 // Private function called by `pagetable_load_page`
