@@ -235,6 +235,12 @@ TODO: talk about data structure for supplementary page table?
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
+We implemented a simple second-chance eviction algorithm. Whenever
+a frame is populated by a page it is added to the back of our
+frame_eviction_queue list. When we need to evict a page we choose
+the front item in that list. Unless it's pinned or has been recently
+accessed, in which case we clear the access flag. Either way, we then
+send that frame to the back of the eviction queue.
 
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data

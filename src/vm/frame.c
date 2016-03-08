@@ -76,7 +76,7 @@ static struct frame_info* choose_frame_for_eviction(void) {
         bool is_pinned = front_frame->is_pinned;
 
         if (has_been_accessed || is_pinned) {
-            // This isn't our guy, send him to the back of the line
+            // This isn't our guy
             pagedir_set_accessed(thread_current()->pagedir, kpage_for_front_frame, false);
             pagedir_set_accessed(thread_current()->pagedir, upage_for_front_frame, false);
         } else {
