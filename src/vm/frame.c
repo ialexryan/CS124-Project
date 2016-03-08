@@ -57,7 +57,6 @@ void *page_for_frame(struct frame_info *frame) {
     uintptr_t physical_address = frame_index * PGSIZE;
     return ptov(physical_address);
 }
-
 static struct frame_info* choose_frame_for_eviction(void) {
 
     ASSERT(!list_empty(&frame_eviction_queue));
@@ -136,6 +135,8 @@ void frametable_free_page(void *page) {
     struct frame_info *frame = frame_for_page(page);
     frame->is_user_page = false;
     frame->user_vaddr = NULL;
+
+    list_remove(&(frame->eviction_queue_list_elem));
     
     // Free the page
     palloc_free_page(page);
