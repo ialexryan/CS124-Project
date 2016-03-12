@@ -2,7 +2,6 @@
 #define THREADS_VADDR_H
 
 #include <debug.h>
-#include <round.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -40,12 +39,7 @@ static inline void *pg_round_up(const void *va) {
 static inline void *pg_round_down(const void *va) {
     return (void *) ((uintptr_t) va & ~PGMASK);
 }
-
-/*! Number of pages required for a given byte_count. */
-static inline int pg_count(int byte_count) {
-    return DIV_ROUND_UP(byte_count, PGSIZE);
-}
-
+
 /*! Base address of the 1:1 physical-to-virtual mapping.  Physical memory is
     mapped starting at this virtual address.  Thus, physical address 0 is
     accessible at PHYS_BASE, physical address address 0x1234 at

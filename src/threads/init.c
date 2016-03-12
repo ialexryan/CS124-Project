@@ -22,8 +22,6 @@
 #include "threads/palloc.h"
 #include "threads/pte.h"
 #include "threads/thread.h"
-#include "vm/frame.h"
-#include "vm/swap.h"
 
 #ifdef USERPROG
 
@@ -104,7 +102,6 @@ int main(void) {
 
     /* Initialize memory system. */
     palloc_init(user_page_limit);
-    frametable_init();
     malloc_init();
     paging_init();
 
@@ -135,8 +132,6 @@ int main(void) {
     locate_block_devices();
     filesys_init(format_filesys);
 #endif
-
-    swaptable_init();
 
     printf("Boot complete.\n");
 

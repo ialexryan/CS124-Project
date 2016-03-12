@@ -9,7 +9,6 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include <hash.h>
 #include "synch.h"
 
 /*! States in a thread's life cycle. */
@@ -127,10 +126,6 @@ struct thread {
 
     /*! Used in syscall.c */
     struct file* file_descriptors[MAX_OPEN_FILES];
-    
-    // Supplemental page table, keyed by virtual page address.
-    // Note that it is illegal to access this structure on the initial thread.
-    struct hash pagetable;
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
