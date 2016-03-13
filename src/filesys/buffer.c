@@ -40,10 +40,15 @@ struct buffer_entry {
 
 // GLOBAL VARIABLES
 static struct buffer_entry buffer[BUFFER_SIZE];
-uint8_t buffer_unoccupied_slots;
+static uint8_t buffer_unoccupied_slots;
 
 static struct hash buffer_table;
-struct lock buffer_table_lock;
+static struct lock buffer_table_lock;
+
+// This is a number, ranging between 0 and BUFFER_SIZE,
+// that represents where the eviction clock algorithm is
+// pointing in the array of buffer elements right now.
+static int eviction_clock_position;
 
 
 // BUFFER HASH TABLE FUNCTIONS
@@ -76,6 +81,8 @@ void buffer_init(void) {
 	hash_init(&buffer_table, buffer_hash, buffer_less, NULL);
 
 	lock_init(&buffer_table_lock);
+
+	eviction_clock_position = 0;
 
 	int i;
 	for (i = 0; i < BUFFER_SIZE; i++) {
@@ -179,10 +186,18 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
 	}
     // Otherwise, evict an existing buffer entry...
     else {
-        // Naively evict slot 1. We'll revisit
-        // this functionality later, obviously.
-        b = &buffer[1];
-        lock_acquire(&b->lock);
+        b = &buffer[eviction_clock_position];
+
+        // If a buffer slot is either recently accessed or locked,
+        // we just keep looking.
+        while (b->recently_accessed || !lock_try_acquire(&b->lock)) {
+        	b->recently_accessed = false;
+        	eviction_clock_position += 1;
+        	eviction_clock_position %= 64;
+        	b = &buffer[eviction_clock_position];
+        }
+
+        // lock_acquire(&b->lock);
         if (b->dirty) {
         	writeback_dirty_buffer_entry(b);
         }
