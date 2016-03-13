@@ -259,25 +259,47 @@ void buffer_release(struct buffer_entry *b) {
     lock_release(&(b->lock));
 }
 
-void buffer_read(block_sector_t sector, void* buffer) {
-    // Obtain the buffer entry
+// This function is almost always used with its convenience method,
+// buffer_read, which gets BLOCK_SECTOR_SIZE bytes.
+// This function reads up to 512 bytes from the cache.
+void buffer_read_bytes(block_sector_t sector, int sector_ofs, int num_bytes, void* buffer) {
+	ASSERT(sector_ofs >= 0 && sector_ofs < BLOCK_SECTOR_SIZE);
+	ASSERT(num_bytes > 0 && num_bytes <= BLOCK_SECTOR_SIZE);
+
+    // Obtain buffer entry with that sector. This function
+    // abstracts away a lot of important things, read it.
     struct buffer_entry *b = buffer_acquire(sector);
     
     // Copy the data into the buffer
-    memcpy(buffer, &(b->storage), BLOCK_SECTOR_SIZE);
+    void* start = (void *)(((uint8_t *)(&(b->storage))) + sector_ofs);
+    memcpy(buffer, start, num_bytes);
 
     // Release the lock on the buffer.
     buffer_release(b);
 }
+void buffer_read(block_sector_t sector, void* buffer) {
+	buffer_read_bytes(sector, 0, BLOCK_SECTOR_SIZE, buffer);
+}
 
-void buffer_write(block_sector_t sector, const void* buffer) {
-    // Obtain the buffer entry
+// This function is almost always used with its convenience method,
+// buffer_read, which gets BLOCK_SECTOR_SIZE bytes.
+// This function writes up to 512 bytes to the cache.
+void buffer_write_bytes(block_sector_t sector, int sector_ofs, int num_bytes, const void* buffer) {
+	ASSERT(sector_ofs >= 0 && sector_ofs < BLOCK_SECTOR_SIZE);
+	ASSERT(num_bytes > 0 && num_bytes <= BLOCK_SECTOR_SIZE);
+
+    // Obtain buffer entry with that sector. This function
+    // abstracts away a lot of important things, read it.
     struct buffer_entry *b = buffer_acquire(sector);
 
-    // Copy the buffer data into the cache.
-    memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
+    // Copy the buffer data into our cache.
+    void* start = (void *)(((uint8_t *)(&(b->storage))) + sector_ofs);
+    memcpy(start, buffer, num_bytes);
     b->dirty = true;
     
     // Release the lock on the buffer.
     buffer_release(b);
+}
+void buffer_write(block_sector_t sector, const void* buffer) {
+	buffer_write_bytes(sector, 0, BLOCK_SECTOR_SIZE, buffer);
 }
