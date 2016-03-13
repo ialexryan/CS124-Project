@@ -34,7 +34,7 @@ struct buffer_entry {
     
     // The lock that allows multiple threads to read from but
     // only one thread to write to the storage at once.
-	struct read_write_lock lock;
+	struct lock lock;
 };
 
 
@@ -89,7 +89,7 @@ void buffer_init(void) {
 		buffer[i].occupied_by_sector = UNOCCUPIED;
 		buffer[i].dirty = false;
 		buffer[i].recently_accessed = false;
-		rw_lock_init(&buffer[i].lock);
+		lock_init(&buffer[i].lock);
 	}
 }
 
