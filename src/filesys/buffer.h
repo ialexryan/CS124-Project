@@ -35,7 +35,11 @@ void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_byte
 
 // Write to the buffer the given data member of the struct.
 #define buffer_write_member(SECTOR, STRUCT, MEMBER, DATA) \
-    buffer_write_bytes(SECTOR, offsetof(STRUCT, MEMBER), \
-        sizeof(memberof(STRUCT, MEMBER)), (const void *)&DATA)
+    ({ \
+        typeof(DATA) temp = DATA; \
+        buffer_write_bytes(SECTOR, offsetof(STRUCT, MEMBER), \
+            sizeof(memberof(STRUCT, MEMBER)), (const void *)&temp); \
+        ; \
+    })
 
 #endif /* filesys/buffer.h */
