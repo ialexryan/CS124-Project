@@ -19,16 +19,16 @@
 /*! On-disk inode.
 	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 #define INODE_DISK_MEMBERS struct {\
-	block_sector_t start;                 /*!< First data sector. */\
-	off_t length;                       /*!< File size in bytes. */\
-	unsigned magic;                     /*!< Magic number. */\
-	block_sector_t direct[NUM_DIRECT];\
-	block_sector_t indirect[NUM_INDIRECT];\
-	block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
+    block_sector_t start;               /*!< First data sector. */\
+    off_t length;                       /*!< File size in bytes. */\
+    unsigned magic;                     /*!< Magic number. */\
+    block_sector_t direct[NUM_DIRECT];\
+    block_sector_t indirect[NUM_INDIRECT];\
+    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
 }
 
 struct inode_disk {
-	INODE_DISK_MEMBERS;
+    INODE_DISK_MEMBERS;
     
     /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
 	char unused[BLOCK_SECTOR_SIZE - sizeof(INODE_DISK_MEMBERS)];
@@ -47,7 +47,6 @@ struct inode {
     int open_cnt;                       /*!< Number of openers. */
     bool removed;                       /*!< True if deleted, false otherwise. */
     int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /*!< Inode content. */
 };
 
 /*! Returns the block device sector that contains byte offset POS
@@ -56,8 +55,9 @@ struct inode {
     POS. */
 static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
     ASSERT(inode != NULL);
-    if (pos < inode->data.length)
-        return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+    struct inode_disk data = buffer_read_struct(inode->sector, struct inode_disk);
+    if (pos < data.length)
+        return data.start + pos / BLOCK_SECTOR_SIZE;
     else
         return -1;
 }
@@ -135,7 +135,6 @@ struct inode * inode_open(block_sector_t sector) {
     inode->open_cnt = 1;
     inode->deny_write_cnt = 0;
     inode->removed = false;
-    buffer_read(inode->sector, &inode->data);
     return inode;
 }
 
@@ -163,12 +162,15 @@ void inode_close(struct inode *inode) {
     if (--inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
         list_remove(&inode->elem);
+        
+        // Retrive the data from the cache
+        struct inode_disk data = buffer_read_struct(inode->sector, struct inode_disk);
  
         /* Deallocate blocks if removed. */
         if (inode->removed) {
             free_map_release(inode->sector, 1);
-            free_map_release(inode->data.start,
-                             bytes_to_sectors(inode->data.length)); 
+            free_map_release(data.start,
+                             bytes_to_sectors(data.length));
         }
 
         free(inode); 
@@ -285,6 +287,6 @@ void inode_allow_write (struct inode *inode) {
 
 /*! Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode *inode) {
-    return inode->data.length;
+    return buffer_read_member(inode->sector, struct inode_disk, length);
 }
 
