@@ -77,6 +77,13 @@ void buffer_init(void) {
 	}
 }
 
+// Precondition: The buffer entry's lock is held by the current thread.
+void writeback_dirty_buffer_entry(struct buffer_entry* b) {
+	ASSERT(lock_held_by_current_thread(&(b->lock)));
+	ASSERT(b->dirty == true);
+	block_write(fs_device, b->occupied_by_sector, &(b->storage));
+	b->dirty = false;
+}
 
 // This accepts a sector number and looks up the buffer_entry struct for that
 // sector. Returns null if the given sector isn't in the cache.
@@ -168,8 +175,7 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         b = &buffer[1];
         lock_acquire(&b->lock);
         if (b->dirty) {
-        	block_write(fs_device, b->occupied_by_sector, &(b->storage));
-        	b->dirty = false;
+        	writeback_dirty_buffer_entry(b);
         }
         hash_delete(&buffer_table, &(b->hash_elem));
         b->occupied_by_sector = UNOCCUPIED;
