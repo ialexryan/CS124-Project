@@ -2,13 +2,14 @@
 #include <debug.h>
 #include <hash.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include "filesys/buffer.h"
 #include "filesys/filesys.h"
 #include "threads/synch.h"
 
 #define BUFFER_SIZE 64
-#define UNOCCUPIED -1
+#define UNOCCUPIED UINT32_MAX
 
 
 // OBJECT DEFINITIONS
@@ -17,7 +18,7 @@ struct buffer_entry {
 	struct hash_elem hash_elem;
 
 	// The block that currently occupies this cache slot. Used as the
-	// key in the hash table. UNOCCUPIED if it hasn't been used since boot.
+	// key in the hash table.
 	block_sector_t occupied_by_sector;
 
 	// If this cache entry has been modified and hasn't
@@ -31,6 +32,7 @@ struct buffer_entry {
 
 // GLOBAL VARIABLES
 static struct buffer_entry buffer[BUFFER_SIZE];
+uint8_t buffer_unoccupied_slots;
 
 static struct hash buffer_table;
 struct lock buffer_table_lock;
@@ -54,6 +56,14 @@ unsigned buffer_hash(const struct hash_elem *e, void *aux UNUSED) {
 
 // BUFFER FUNCTIONS
 void buffer_init(void) {
+	/* A brief note about how we handle unoccupied slots.
+       Since slots are only unoccupied for a moment at the very
+       beginning and then occupied forevermore, we just keep track
+       of how many unoccupied slots are left, counting down from 64 to 0.
+       While there are unoccupied slots left, we just fill them up in
+       order from 63 to 0. Once there are no unoccupied slots left
+       (i.e. unoccupied_slots == 0) then we start evicting things. */
+	buffer_unoccupied_slots = BUFFER_SIZE;
 
 	hash_init(&buffer_table, buffer_hash, buffer_less, NULL);
 
@@ -73,6 +83,8 @@ void buffer_init(void) {
 struct buffer_entry *buffer_entry_for_sector(struct hash *buffer_table,
                                              block_sector_t sector) {
     
+    ASSERT(lock_held_by_current_thread(&buffer_table_lock)); 
+
     // Create dummy entry for lookup
     struct buffer_entry lookup_entry;
     lookup_entry.occupied_by_sector = sector;
@@ -99,9 +111,12 @@ struct buffer_entry* buffer_get_free_slot(void) {
 	struct buffer_entry* b;
 
 	// First, let's just hope there's an unoccupied slot.
-	b = buffer_entry_for_sector(&buffer_table, UNOCCUPIED);
-	if (b != NULL) {
-		lock_acquire(&(b->lock));
+	if (buffer_unoccupied_slots > 0) {
+		// The first unoccupied slot we'll fill is index 63, the last is 0
+		buffer_unoccupied_slots -= 1;
+		lock_acquire(&(buffer[buffer_unoccupied_slots].lock));
+		b = &(buffer[buffer_unoccupied_slots]);
+		ASSERT(b->occupied_by_sector == UNOCCUPIED);
 		return b;
 	}
 
@@ -109,6 +124,7 @@ struct buffer_entry* buffer_get_free_slot(void) {
 	// this functionality later, obviously.
 	lock_acquire(&(buffer[1].lock));
 	b = &(buffer[1]);
+	hash_delete(&buffer_table, &(b->hash_elem));
 	b->occupied_by_sector = UNOCCUPIED;
 	return b;
 }
@@ -121,26 +137,46 @@ void buffer_read(block_sector_t sector, void* buffer) {
 	// First, let's see if sector is aleady in the buffer
 	b = buffer_entry_for_sector(&buffer_table, sector);
 
-	// If it was, read out of the buffer
+	// If it was, fulfill the read from the buffer
 	if (b != NULL) {
 		lock_release(&buffer_table_lock);
 		lock_acquire(&(b->lock));
 		memcpy(buffer, &(b->storage), BLOCK_SECTOR_SIZE);
 		lock_release(&(b->lock));
+		return;
 	}
 
 	// If it wasn't, get a new cache slot and
-	// read the disk into that slot.
+	// read from the disk into that slot.
 	b = buffer_get_free_slot();
 	lock_release(&buffer_table_lock);
 	block_read(fs_device, sector, &(b->storage));
 	memcpy(buffer, &(b->storage), BLOCK_SECTOR_SIZE);
+	b->occupied_by_sector = sector;
+	hash_insert(&buffer_table, &(b->hash_elem));
 	lock_release(&(b->lock));
 }
 
 void buffer_write(block_sector_t sector, const void* buffer) {
 
-	// Writes aren't cached right now.
+	lock_acquire(&buffer_table_lock);
+	struct buffer_entry* b;
+
+	// First, let's see if sector is already in the buffer
+	b = buffer_entry_for_sector(&buffer_table, sector);
+
+	// If it was, write to the cache then writeback immediately
+	if (b != NULL) {
+		lock_release(&buffer_table_lock);
+		lock_acquire(&(b->lock));
+		memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
+		block_write(fs_device, sector, &(b->storage));
+		lock_release(&(b->lock));
+		return;
+	}
+
+	// If it wasn't, just write to disk.
+	lock_release(&buffer_table_lock);
 	block_write(fs_device, sector, buffer);
 
 	// lock_acquire(&(buffer[2].lock));
