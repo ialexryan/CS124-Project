@@ -11,13 +11,27 @@
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
+#define NUM_DIRECT 12
+#define NUM_INDIRECT 1
+#define NUM_DOUBLE_INDIRECT 1
+#define NUM_ENTRIES (NUM_DIRECT + NUM_INDIRECT + NUM_DOUBLE_INDIRECT)
+
 /*! On-disk inode.
-    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+#define INODE_DISK_MEMBERS struct {\
+	unsigned int start;                 /*!< First data sector. */\
+	char *length;                       /*!< File size in bytes. */\
+	unsigned magic;                     /*!< Magic number. */\
+	long long direct[NUM_DIRECT];\
+	long indirect[NUM_INDIRECT];\
+	long long double_indirect[NUM_DOUBLE_INDIRECT];\
+}
+
 struct inode_disk {
-    block_sector_t start;               /*!< First data sector. */
-    off_t length;                       /*!< File size in bytes. */
-    unsigned magic;                     /*!< Magic number. */
-    uint32_t unused[125];               /*!< Not used. */
+	INODE_DISK_MEMBERS;
+    
+    /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
+	char unused[BLOCK_SECTOR_SIZE - sizeof(INODE_DISK_MEMBERS)];
 };
 
 /*! Returns the number of sectors to allocate for an inode SIZE
