@@ -11,47 +11,12 @@
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
-#define NUM_DIRECT 12
-#define NUM_INDIRECT 1
-#define NUM_DOUBLE_INDIRECT 1
-#define NUM_ENTRIES (NUM_DIRECT + NUM_INDIRECT + NUM_DOUBLE_INDIRECT)
-
-/*! On-disk inode.
-	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
-#define INODE_DATA \
-    block_sector_t start;               /*!< First data sector. */\
-    off_t length;                       /*!< File size in bytes. */\
-    unsigned magic;                     /*!< Magic number. */\
-    block_sector_t direct[NUM_DIRECT];\
-    block_sector_t indirect[NUM_INDIRECT];\
-    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];
-
-// The informational disk-stored data associated with a given inode.
-struct inode_data { INODE_DATA };
-
-// The actual disk-stored struct that includes the padding.
-struct inode_disk {
-    // Anonymously embed all the data members in this struct.
-    struct { INODE_DATA };
-    
-    /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
-    char unused[BLOCK_SECTOR_SIZE - sizeof(struct { INODE_DATA })];
-};
-
 /*! Returns the number of sectors to allocate for an inode SIZE
     bytes long. */
 static inline size_t bytes_to_sectors(off_t size) {
     return DIV_ROUND_UP(size, BLOCK_SECTOR_SIZE);
 }
 
-/*! In-memory inode. */
-struct inode {
-    struct list_elem elem;              /*!< Element in inode list. */
-    block_sector_t sector;              /*!< Sector number of disk location. */
-    int open_cnt;                       /*!< Number of openers. */
-    bool removed;                       /*!< True if deleted, false otherwise. */
-    int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
-};
 
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
