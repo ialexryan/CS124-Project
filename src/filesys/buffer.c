@@ -226,10 +226,6 @@ void buffer_read(block_sector_t sector, void* buffer) {
 
     // Release the lock on the buffer.
     buffer_release(b);
-    
-    struct buffer_entry *b2 = buffer_acquire(sector);
-    ASSERT(b == b2);
-    buffer_release(b);
 }
 
 void buffer_write(block_sector_t sector, const void* buffer) {
