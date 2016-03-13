@@ -262,7 +262,7 @@ void buffer_release(struct buffer_entry *b) {
 // This function is almost always used with its convenience method,
 // buffer_read, which gets BLOCK_SECTOR_SIZE bytes.
 // This function reads up to 512 bytes from the cache.
-void buffer_read_bytes(block_sector_t sector, int sector_ofs, int num_bytes, void* buffer) {
+void buffer_read_bytes(block_sector_t sector, off_t sector_ofs, size_t num_bytes, void* buffer) {
 	ASSERT(sector_ofs >= 0 && sector_ofs < BLOCK_SECTOR_SIZE);
 	ASSERT(num_bytes > 0 && num_bytes <= BLOCK_SECTOR_SIZE);
 
@@ -284,7 +284,7 @@ void buffer_read(block_sector_t sector, void* buffer) {
 // This function is almost always used with its convenience method,
 // buffer_read, which gets BLOCK_SECTOR_SIZE bytes.
 // This function writes up to 512 bytes to the cache.
-void buffer_write_bytes(block_sector_t sector, int sector_ofs, int num_bytes, const void* buffer) {
+void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_bytes, const void* buffer) {
 	ASSERT(sector_ofs >= 0 && sector_ofs < BLOCK_SECTOR_SIZE);
 	ASSERT(num_bytes > 0 && num_bytes <= BLOCK_SECTOR_SIZE);
 
