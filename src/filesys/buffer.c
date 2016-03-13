@@ -29,8 +29,12 @@ struct buffer_entry {
 	// the last eviction algorithm pass
 	bool recently_accessed;
 
-	uint8_t storage[BLOCK_SECTOR_SIZE]; // 512 bytes of block data
-	struct lock lock;
+    // 512 bytes of block data
+	uint8_t storage[BLOCK_SECTOR_SIZE];
+    
+    // The lock that allows multiple threads to read from but
+    // only one thread to write to the storage at once.
+	struct read_write_lock lock;
 };
 
 
@@ -78,7 +82,7 @@ void buffer_init(void) {
 		buffer[i].occupied_by_sector = UNOCCUPIED;
 		buffer[i].dirty = false;
 		buffer[i].recently_accessed = false;
-		lock_init(&(buffer[i].lock));
+		rw_lock_init(&buffer[i].lock);
 	}
 }
 

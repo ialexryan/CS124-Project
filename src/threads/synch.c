@@ -453,10 +453,16 @@ void rw_read_release(struct read_write_lock *lock) {
     lock_acquire(&lock->user);
     ASSERT(!lock->is_acquired_by_writer);
 
-    // Let in a writer, if one's waiting.
-    if (!cond_signal(&lock->waiting_writers, &lock->user)) {
-        // Otherwise, let's let all the waiting readers through.
-        cond_broadcast(&lock->waiting_readers, &lock->user);
+    // Give it up.
+    lock->reader_count -= 1;
+    
+    // Check if nobody else is using it.
+    if (lock->reader_count == 0) {
+        // If so, let in a writer, if one's waiting.
+        if (!cond_signal(&lock->waiting_writers, &lock->user)) {
+            // Otherwise, let's let all the waiting readers through.
+            cond_broadcast(&lock->waiting_readers, &lock->user);
+        }
     }
     
     lock_release(&lock->user);
@@ -470,6 +476,9 @@ void rw_read_release(struct read_write_lock *lock) {
 void rw_write_release(struct read_write_lock *lock) {
     lock_acquire(&lock->user);
     ASSERT(lock->is_acquired_by_writer);
+    
+    // Give it up.
+    lock->is_acquired_by_writer = false;
     
     // Let in any readers, if some are waiting.
     if (!cond_broadcast(&lock->waiting_readers, &lock->user)) {
