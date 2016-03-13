@@ -387,3 +387,96 @@ bool cond_broadcast(struct condition *cond, struct lock *lock) {
     }
     return signaled;
 }
+
+/*! Initializes LOCK.*/
+void rw_init(struct read_write_lock *lock) {
+    ASSERT(lock != NULL);
+    
+    lock_init(&lock->user);
+    cond_init(&lock->waiting_readers);
+    cond_init(&lock->waiting_writers);
+    lock->is_acquired_by_writer = false;
+    lock->reader_count = false;
+}
+
+/*! Acquires LOCK for reading, sleeping until it becomes available if
+    necessary.  Note that a lock is availible for reading if there are
+    no writers using it.  The lock must not already be held by the
+    current thread.
+
+    This function may sleep, so it must not be called within an
+    interrupt handler.  This function may be called with
+    interrupts disabled, but interrupts will be turned back on if
+    we need to sleep. */
+void rw_read_acquire(struct read_write_lock *lock) {
+    lock_acquire(&lock->user);
+    
+    // Wait for the writer to go away...
+    while (lock->is_acquired_by_writer) {
+        cond_wait(&lock->waiting_readers, &lock->user);
+    }
+    
+    // It's gone now, so we're allowed to read.
+    lock->reader_count += 1;
+    lock_release(&lock->user);
+}
+
+/*! Acquires LOCK for writer, sleeping until it becomes available if
+    necessary.  Note that a lock is availible for writing if there are
+    no readers and no writers using it.  The lock must not already be
+    held by the current thread.
+
+    This function may sleep, so it must not be called within an
+    interrupt handler.  This function may be called with
+    interrupts disabled, but interrupts will be turned back on if
+    we need to sleep. */
+void rw_write_acquire(struct read_write_lock *lock) {
+    lock_acquire(&lock->user);
+    
+    // Wait for all writers and readers to go away...
+    while (lock->is_acquired_by_writer || lock->reader_count > 0) {
+        cond_wait(&lock->waiting_writers, &lock->user);
+    }
+    
+    // They're gone now, so we're allowed to write.
+    lock->is_acquired_by_writer = true;
+    lock_release(&lock->user);
+}
+
+
+/*! Releases LOCK, which must be owned by the current thread.
+
+    An interrupt handler cannot acquire a lock, so it does not
+    make sense to try to release a lock within an interrupt
+    handler. */
+void rw_read_release(struct read_write_lock *lock) {
+    lock_acquire(&lock->user);
+    ASSERT(!lock->is_acquired_by_writer);
+
+    // Let in a writer, if one's waiting.
+    if (!cond_signal(&lock->waiting_writers, &lock->user)) {
+        // Otherwise, let's let all the waiting readers through.
+        cond_broadcast(&lock->waiting_readers, &lock->user);
+    }
+    
+    lock_release(&lock->user);
+}
+
+/*! Releases LOCK, which must be owned by the current thread.
+
+    An interrupt handler cannot acquire a lock, so it does not
+    make sense to try to release a lock within an interrupt
+    handler. */
+void rw_write_release(struct read_write_lock *lock) {
+    lock_acquire(&lock->user);
+    ASSERT(lock->is_acquired_by_writer);
+    
+    // Let in any readers, if some are waiting.
+    if (!cond_broadcast(&lock->waiting_readers, &lock->user)) {
+        // Otherwise, let's let the next waiting writer through.
+        cond_signal(&lock->waiting_writers, &lock->user);
+    }
+    
+    lock_release(&lock->user);
+}
+

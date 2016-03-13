@@ -44,6 +44,21 @@ void cond_wait(struct condition *, struct lock *);
 bool cond_signal(struct condition *, struct lock *);
 bool cond_broadcast(struct condition *, struct lock *);
 
+/*! Read-write lock. */
+struct read_write_lock {
+    struct lock user;
+    struct condition waiting_readers;  /*!< Condition variable of waiting reader threads. */
+    struct condition waiting_writers;  /*!< Condition variable of waiting writer threads. */
+    bool is_acquired_by_writer;        /*!< True if the lock is acquired by a writer. */
+    int reader_count;                  /*!< The number of readers who have acquired a lock. */
+};
+
+void rw_init(struct read_write_lock *);
+void rw_read_acquire(struct read_write_lock *);
+void rw_read_release(struct read_write_lock *);
+void rw_write_acquire(struct read_write_lock *);
+void rw_write_release(struct read_write_lock *);
+
 /*! Optimization barrier.
 
    The compiler will not reorder operations across an
