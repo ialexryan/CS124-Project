@@ -25,6 +25,10 @@ struct buffer_entry {
 	// been written back to disk yet.
 	bool dirty;
 
+	// If this cache entry has been read from or written to since
+	// the last eviction algorithm pass
+	bool recently_accessed;
+
 	uint8_t storage[BLOCK_SECTOR_SIZE]; // 512 bytes of block data
 	struct lock lock;
 };
@@ -73,6 +77,7 @@ void buffer_init(void) {
 	for (i = 0; i < BUFFER_SIZE; i++) {
 		buffer[i].occupied_by_sector = UNOCCUPIED;
 		buffer[i].dirty = false;
+		buffer[i].recently_accessed = false;
 		lock_init(&(buffer[i].lock));
 	}
 }
@@ -179,6 +184,7 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         }
         hash_delete(&buffer_table, &(b->hash_elem));
         b->occupied_by_sector = UNOCCUPIED;
+        b->recently_accessed = false;
 
         // TODO: Uncertain if we ought to block on the table lock in the
         //       case of eviction. Reconsider later.
@@ -202,6 +208,7 @@ struct buffer_entry *buffer_acquire(block_sector_t sector) {
         // Grab a buffer entry, lock acquired, and set it up.
         b = buffer_acquire_free_slot();
         b->occupied_by_sector = sector;
+        b->recently_accessed = true;
         hash_insert(&buffer_table, &(b->hash_elem));
         
         // Read the on-disk data into the buffer.
