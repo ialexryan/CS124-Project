@@ -37,6 +37,7 @@ void filesys_done(void) {
     successful, false otherwise.  Fails if a file named NAME already exists,
     or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size) {
+    ASSERT(name != NULL);
     block_sector_t inode_sector = 0;
     struct dir *dir = dir_open_root();
     bool success = (dir != NULL &&
@@ -54,6 +55,7 @@ bool filesys_create(const char *name, off_t initial_size) {
     or a null pointer otherwise.  Fails if no file named NAME exists,
     or if an internal memory allocation fails. */
 struct file * filesys_open(const char *name) {
+    ASSERT(name != NULL);
     struct dir *dir = dir_open_root();
     struct inode *inode = NULL;
 
@@ -68,6 +70,7 @@ struct file * filesys_open(const char *name) {
     Fails if no file named NAME exists, or if an internal memory allocation
     fails. */
 bool filesys_remove(const char *name) {
+    ASSERT(name != NULL);
     struct dir *dir = dir_open_root();
     bool success = dir != NULL && dir_remove(dir, name);
     dir_close(dir);
