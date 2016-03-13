@@ -180,14 +180,15 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
     return b;
 }
 
-void buffer_read(block_sector_t sector, void* buffer) {
+// Precondition: The global lock isn't held.
+// Postcondition: The global lock isn't held, but the entry lock is.
+struct buffer_entry *buffer_acquire(block_sector_t sector) {
     // Acquire the global lock. Will be automatically released
     // when an existing entry or free slot is acquired.
     lock_acquire(&buffer_table_lock);
-    struct buffer_entry* b;
     
     // First, let's see if sector is aleady in the buffer.
-    b = buffer_acquire_existing_entry(sector);
+    struct buffer_entry *b = buffer_acquire_existing_entry(sector);
     
     // If this sector isn't yet loaded, load it here...
     if (b == NULL) {
@@ -199,34 +200,38 @@ void buffer_read(block_sector_t sector, void* buffer) {
         block_read(fs_device, sector, &(b->storage));
     }
     
+    return b;
+}
+
+// Precondition: The entry lock is held.
+// Postcondition: The global lock isn't held, but the entry lock is.
+void buffer_release(struct buffer_entry *b) {
+    lock_release(&(b->lock));
+}
+
+void buffer_read(block_sector_t sector, void* buffer) {
+    // Obtain the buffer entry
+    struct buffer_entry *b = buffer_acquire(sector);
+    
     // Copy the data into the buffer
     memcpy(buffer, &(b->storage), BLOCK_SECTOR_SIZE);
 
     // Release the lock on the buffer.
-    lock_release(&(b->lock));
+    buffer_release(b);
 }
 
 void buffer_write(block_sector_t sector, const void* buffer) {
+    // Obtain the buffer entry
+    struct buffer_entry *b = buffer_acquire(sector);
 
-    // Obtain the global lock to look up a buffer entry. Note that it
-    // will be released automatically if we find an entry, otherwise
-    // it must be released manually.
-	lock_acquire(&buffer_table_lock);
+    // Copy the buffer data into the cache.
+    memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
+    b->dirty = true;
+
+    // Also just write to disk.
+    // TODO: Why do tests fail when we remove this?!
+    block_write(fs_device, sector, buffer);
     
-	struct buffer_entry* b;
-	// Try to find a cache entry.
-    if ((b = buffer_acquire_existing_entry(sector))) {
-        // Copy the buffer data into the cache.
-        memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
-        b->dirty = true;
-
-        // We're done writing, so release the lock.
-        lock_release(&(b->lock));
-    } else {
-        // Release the buffer lock.
-        lock_release(&buffer_table_lock);
-        
-        // Just write to disk.
-        block_write(fs_device, sector, buffer);
-    }
+    // Release the lock on the buffer.
+    buffer_release(b);
 }
