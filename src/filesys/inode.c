@@ -59,6 +59,7 @@ bool inode_create(block_sector_t sector, off_t length) {
     if (disk_inode != NULL) {
         size_t sectors = bytes_to_sectors(length);
         disk_inode->length = length;
+        disk_inode->is_directory = false;
         disk_inode->magic = INODE_MAGIC;
         if (free_map_allocate(sectors, &disk_inode->start)) {
             buffer_write(sector, disk_inode);

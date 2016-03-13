@@ -20,6 +20,7 @@ struct bitmap;
     block_sector_t direct[NUM_DIRECT];\
     block_sector_t indirect[NUM_INDIRECT];\
     block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
+    bool is_directory;                  /*!< True if directory, false if file. */
 
 // The informational disk-stored data associated with a given inode.
 struct inode_data { _INODE_DATA };
