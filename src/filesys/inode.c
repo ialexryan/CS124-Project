@@ -148,6 +148,15 @@ static block_sector_t sector_at_inode_index(size_t index, struct inode *inode) {
     else return _sector_at_indirect_index(index_in_sector, sector, level - 1);
 }
 
+typedef void sector_action_func (block_sector_t);
+void inode_apply (struct inode *inode, sector_action_func *) {
+    size_t i;
+    size_t count = buffer_read_member(inode->sector, struct inode_data, count);
+    for (i = 0; i < count; i++) {
+        sector_action_func(sector_at_inode_index(i, inode));
+    }
+}
+
 /*! Returns the number of sectors to allocate for an inode SIZE
     bytes long. */
 static inline size_t bytes_to_sectors(off_t size) {
