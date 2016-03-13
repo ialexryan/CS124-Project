@@ -18,20 +18,24 @@
 
 /*! On-disk inode.
 	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
-#define INODE_DISK_MEMBERS struct {\
+#define INODE_DATA \
     block_sector_t start;               /*!< First data sector. */\
     off_t length;                       /*!< File size in bytes. */\
     unsigned magic;                     /*!< Magic number. */\
     block_sector_t direct[NUM_DIRECT];\
     block_sector_t indirect[NUM_INDIRECT];\
-    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
-}
+    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];
 
+// The informational disk-stored data associated with a given inode.
+struct inode_data { INODE_DATA };
+
+// The actual disk-stored struct that includes the padding.
 struct inode_disk {
-    INODE_DISK_MEMBERS;
+    // Anonymously embed all the data members in this struct.
+    struct { INODE_DATA };
     
     /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
-	char unused[BLOCK_SECTOR_SIZE - sizeof(INODE_DISK_MEMBERS)];
+    char unused[BLOCK_SECTOR_SIZE - sizeof(struct { INODE_DATA })];
 };
 
 /*! Returns the number of sectors to allocate for an inode SIZE
@@ -55,7 +59,7 @@ struct inode {
     POS. */
 static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
     ASSERT(inode != NULL);
-    struct inode_disk data = buffer_read_struct(inode->sector, struct inode_disk);
+    struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
     if (pos < data.length)
         return data.start + pos / BLOCK_SECTOR_SIZE;
     else
@@ -164,7 +168,7 @@ void inode_close(struct inode *inode) {
         list_remove(&inode->elem);
         
         // Retrive the data from the cache
-        struct inode_disk data = buffer_read_struct(inode->sector, struct inode_disk);
+        struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
  
         /* Deallocate blocks if removed. */
         if (inode->removed) {
@@ -287,6 +291,6 @@ void inode_allow_write (struct inode *inode) {
 
 /*! Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode *inode) {
-    return buffer_read_member(inode->sector, struct inode_disk, length);
+    return buffer_read_member(inode->sector, struct inode_data, length);
 }
 
