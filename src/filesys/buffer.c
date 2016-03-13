@@ -82,7 +82,6 @@ void buffer_init(void) {
 // sector. Returns null if the given sector isn't in the cache.
 // Precondition: Must hold the buffer_table_lock.
 struct buffer_entry *_buffer_entry_for_sector(block_sector_t sector) {
-
     ASSERT(lock_held_by_current_thread(&buffer_table_lock)); 
 
     // Create dummy entry for lookup
@@ -216,9 +215,11 @@ void buffer_write(block_sector_t sector, const void* buffer) {
     if ((b = buffer_acquire_existing_entry(sector))) {
         // Copy the buffer data into the cache.
         memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
+        // Immediately writeback to disk (this will be changed later)
+        block_write(fs_device, sector, &(b->storage));
 
         // We're done writing, so release the lock.
-        lock_release(&b->lock);
+        lock_release(&(b->lock));
     } else {
         // Release the buffer lock.
         lock_release(&buffer_table_lock);
