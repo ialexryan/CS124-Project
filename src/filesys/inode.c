@@ -158,14 +158,14 @@ static inline size_t bytes_to_sectors(off_t size) {
     within INODE.
     Returns -1 if INODE does not contain data for a byte at offset
     POS. */
-static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
-    ASSERT(inode != NULL);
-    struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
-    if (pos < data.length)
-        return data.start + pos / BLOCK_SECTOR_SIZE;
-    else
-        return -1;
-}
+//static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
+//    ASSERT(inode != NULL);
+//    struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
+//    if (pos < data.length)
+//        return data.start + pos / BLOCK_SECTOR_SIZE;
+//    else
+//        return -1;
+//}
 
 /*! List of open inodes, so that opening a single inode twice
     returns the same `struct inode'. */

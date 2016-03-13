@@ -24,8 +24,7 @@ struct bitmap;
 // so it can be easily embedded as an anonymous struct while still easily
 // supporting sizeof.
 #define _INODE_DATA \
-    block_sector_t start;               /*!< First data sector. */\
-    off_t length;                       /*!< File size in bytes. */\
+    size_t count;                       /*!< File size in bytes. */\
     unsigned magic;                     /*!< Magic number. */\
     bool is_directory;                  /*!< True if directory, false if file. */\
     block_sector_t sectors[TOTAL_INDIRECTION];\
