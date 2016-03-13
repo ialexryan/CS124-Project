@@ -101,6 +101,22 @@ void writeback_dirty_buffer_entry(struct buffer_entry* b) {
 	b->dirty = false;
 }
 
+// This function just writes back all dirty entries in the cache.
+void buffer_flush(void) {
+	// This function makes no effort to prevent writes while it's
+	// running, except for the block currently being written back.
+	// We thought about it and couldn't think of any reason it'd be helpful.
+
+	int i = 0;
+	for (i = 0; i < BUFFER_SIZE; i++) {
+		lock_acquire(&(buffer[i].lock));
+		if (buffer[i].dirty) {
+			writeback_dirty_buffer_entry(&buffer[i]);
+		}
+		lock_release(&(buffer[i].lock));
+	}
+}
+
 // This accepts a sector number and looks up the buffer_entry struct for that
 // sector. Returns null if the given sector isn't in the cache.
 // Precondition: Must hold the buffer_table_lock.
