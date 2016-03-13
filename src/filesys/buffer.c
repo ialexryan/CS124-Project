@@ -169,6 +169,7 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         lock_acquire(&b->lock);
         if (b->dirty) {
         	block_write(fs_device, b->occupied_by_sector, &(b->storage));
+        	b->dirty = false;
         }
         hash_delete(&buffer_table, &(b->hash_elem));
         b->occupied_by_sector = UNOCCUPIED;
