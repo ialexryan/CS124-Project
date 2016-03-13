@@ -198,10 +198,11 @@ struct buffer_entry *buffer_acquire(block_sector_t sector) {
     struct buffer_entry *b = buffer_acquire_existing_entry(sector);
     
     // If this sector isn't yet loaded, load it here...
-    if (b == NULL) {
+    if (b == NULL) {        
         // Grab a buffer entry, lock acquired, and set it up.
         b = buffer_acquire_free_slot();
         b->occupied_by_sector = sector;
+        hash_insert(&buffer_table, &(b->hash_elem));
         
         // Read the on-disk data into the buffer.
         block_read(fs_device, sector, &(b->storage));
@@ -225,6 +226,10 @@ void buffer_read(block_sector_t sector, void* buffer) {
 
     // Release the lock on the buffer.
     buffer_release(b);
+    
+    struct buffer_entry *b2 = buffer_acquire(sector);
+    ASSERT(b == b2);
+    buffer_release(b);
 }
 
 void buffer_write(block_sector_t sector, const void* buffer) {
@@ -234,10 +239,6 @@ void buffer_write(block_sector_t sector, const void* buffer) {
     // Copy the buffer data into the cache.
     memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
     b->dirty = true;
-
-    // Also just write to disk.
-    // TODO: Why do tests fail when we remove this?!
-    block_write(fs_device, sector, buffer);
     
     // Release the lock on the buffer.
     buffer_release(b);
