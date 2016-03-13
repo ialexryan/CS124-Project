@@ -19,12 +19,12 @@
 /*! On-disk inode.
 	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 #define INODE_DISK_MEMBERS struct {\
-	unsigned int start;                 /*!< First data sector. */\
-	char *length;                       /*!< File size in bytes. */\
+	block_sector_t start;                 /*!< First data sector. */\
+	off_t length;                       /*!< File size in bytes. */\
 	unsigned magic;                     /*!< Magic number. */\
-	long long direct[NUM_DIRECT];\
-	long indirect[NUM_INDIRECT];\
-	long long double_indirect[NUM_DOUBLE_INDIRECT];\
+	block_sector_t direct[NUM_DIRECT];\
+	block_sector_t indirect[NUM_INDIRECT];\
+	block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
 }
 
 struct inode_disk {
