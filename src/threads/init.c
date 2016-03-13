@@ -41,6 +41,7 @@
 
 #include "devices/block.h"
 #include "devices/ide.h"
+#include "filesys/buffer.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
 
@@ -130,6 +131,7 @@ int main(void) {
     /* Initialize file system. */
     ide_init();
     locate_block_devices();
+    buffer_init();
     filesys_init(format_filesys);
 #endif
 
