@@ -345,11 +345,14 @@ void cond_wait(struct condition *cond, struct lock *lock) {
 /*! If any threads are waiting on COND (protected by LOCK), then
     this function signals one of them to wake up from its wait.
     LOCK must be held before calling this function.
+ 
+    Returns true if a waiting thread was released. Otherwise,
+    returns false since no waiting threads exist.
 
     An interrupt handler cannot acquire a lock, so it does not
     make sense to try to signal a condition variable within an
     interrupt handler. */
-void cond_signal(struct condition *cond, struct lock *lock UNUSED) {
+bool cond_signal(struct condition *cond, struct lock *lock UNUSED) {
     ASSERT(cond != NULL);
     ASSERT(lock != NULL);
     ASSERT(!intr_context ());
@@ -359,19 +362,28 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED) {
         struct list_elem* max_pri_elem = list_max(&cond->waiters, &semaphore_less_func, NULL);
         list_remove(max_pri_elem);  // This is all just effectively list_pop_max
         sema_up(&list_entry(max_pri_elem, struct semaphore_elem, elem)->semaphore);
+        return true;
+    } else {
+        return false;
     }
 }
 
 /*! Wakes up all threads, if any, waiting on COND (protected by
     LOCK).  LOCK must be held before calling this function.
+ 
+    Returns true if at least one waiting thread was released.
+    Otherwise, returns false since no waiting threads exist.
 
     An interrupt handler cannot acquire a lock, so it does not
     make sense to try to signal a condition variable within an
     interrupt handler. */
-void cond_broadcast(struct condition *cond, struct lock *lock) {
+bool cond_broadcast(struct condition *cond, struct lock *lock) {
     ASSERT(cond != NULL);
     ASSERT(lock != NULL);
 
-    while (!list_empty(&cond->waiters))
-        cond_signal(cond, lock);
+    bool signaled = false;
+    while (cond_signal(cond, lock)) {
+        signaled = true;
+    }
+    return signaled;
 }
