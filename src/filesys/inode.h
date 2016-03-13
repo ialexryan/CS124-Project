@@ -6,21 +6,29 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
-#define NUM_DIRECT 12
-#define NUM_INDIRECT 1
-#define NUM_DOUBLE_INDIRECT 1
-#define NUM_ENTRIES (NUM_DIRECT + NUM_INDIRECT + NUM_DOUBLE_INDIRECT)
-
 struct bitmap;
 
+#define INDIRECTION_ENTIRES_PER_SECTOR 5
+
+// The names levels of indirection coupled with the number
+// of sectors for each level of indirection.
+#define _INDIRECTION \
+    LEVEL(DIRECT, 12) \
+    LEVEL(INDIRECT, 1) \
+    LEVEL(DOUBLE_INDIRECT, 1)
+
+#define LEVEL(_, COUNT) COUNT +
+#define TOTAL_INDIRECTION (_INDIRECTION 0)
+
+// The data (non-padding) potion of the inode_disk. Defined in a macro
+// so it can be easily embedded as an anonymous struct while still easily
+// supporting sizeof.
 #define _INODE_DATA \
     block_sector_t start;               /*!< First data sector. */\
     off_t length;                       /*!< File size in bytes. */\
     unsigned magic;                     /*!< Magic number. */\
-    block_sector_t direct[NUM_DIRECT];\
-    block_sector_t indirect[NUM_INDIRECT];\
-    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];\
-    bool is_directory;                  /*!< True if directory, false if file. */
+    bool is_directory;                  /*!< True if directory, false if file. */\
+    block_sector_t sectors[TOTAL_INDIRECTION];\
 
 // The informational disk-stored data associated with a given inode.
 struct inode_data { _INODE_DATA };
@@ -35,6 +43,10 @@ struct inode_disk {
     /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
     char unused[BLOCK_SECTOR_SIZE - sizeof(struct { _INODE_DATA })];
 };
+
+#undef _INODE_DATA
+#undef LEVEL
+
 /*! In-memory inode. */
 struct inode {
     struct list_elem elem;              /*!< Element in inode list. */
@@ -43,7 +55,6 @@ struct inode {
     bool removed;                       /*!< True if deleted, false otherwise. */
     int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
 };
-
 
 void inode_init(void);
 bool inode_create(block_sector_t, off_t);
