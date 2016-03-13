@@ -167,6 +167,9 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         // this functionality later, obviously.
         b = &buffer[1];
         lock_acquire(&b->lock);
+        if (b->dirty) {
+        	block_write(fs_device, b->occupied_by_sector, &(b->storage));
+        }
         hash_delete(&buffer_table, &(b->hash_elem));
         b->occupied_by_sector = UNOCCUPIED;
 
@@ -215,8 +218,7 @@ void buffer_write(block_sector_t sector, const void* buffer) {
     if ((b = buffer_acquire_existing_entry(sector))) {
         // Copy the buffer data into the cache.
         memcpy(&(b->storage), buffer, BLOCK_SECTOR_SIZE);
-        // Immediately writeback to disk (this will be changed later)
-        block_write(fs_device, sector, &(b->storage));
+        b->dirty = true;
 
         // We're done writing, so release the lock.
         lock_release(&(b->lock));
