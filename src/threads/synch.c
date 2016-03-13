@@ -307,6 +307,16 @@ void cond_init(struct condition *cond) {
     list_init(&cond->waiters);
 }
 
+/*! Returns the number of waiters for the condition variable. */
+unsigned cond_waiter_count(struct condition *cond, struct lock *lock) {
+    ASSERT(cond != NULL);
+    ASSERT(lock != NULL);
+    ASSERT(!intr_context ());
+    ASSERT(lock_held_by_current_thread (lock));
+    
+    return (unsigned)list_size(&cond->waiters);
+}
+
 /*! Atomically releases LOCK and waits for COND to be signaled by
     some other piece of code.  After COND is signaled, LOCK is
     reacquired before returning.  LOCK must be held before calling
@@ -396,7 +406,8 @@ void rw_init(struct read_write_lock *lock) {
     cond_init(&lock->waiting_readers);
     cond_init(&lock->waiting_writers);
     lock->is_acquired_by_writer = false;
-    lock->reader_count = false;
+    lock->active_reader_count = 0;
+    lock->waiting_writer_index = 0;
 }
 
 /*! Acquires LOCK for reading, sleeping until it becomes available if
@@ -411,13 +422,18 @@ void rw_init(struct read_write_lock *lock) {
 void rw_read_acquire(struct read_write_lock *lock) {
     lock_acquire(&lock->user);
     
-    // Wait for the writer to go away...
-    while (lock->is_acquired_by_writer) {
+    // The waiting_writer_index of the lock at which we're allowed to acquire.
+    // Used to ensure that a reader doesn't cut a writer in line.
+    unsigned target_writer_count =
+        lock->waiting_writer_index + cond_waiter_count(&lock->waiting_writers, &lock->user);
+    
+    // Wait for the writer to go away, making sure not to cut!
+    while (lock->is_acquired_by_writer || target_writer_count > lock->waiting_writer_index) {
         cond_wait(&lock->waiting_readers, &lock->user);
     }
     
     // It's gone now, so we're allowed to read.
-    lock->reader_count += 1;
+    lock->active_reader_count += 1;
     lock_release(&lock->user);
 }
 
@@ -434,12 +450,13 @@ void rw_write_acquire(struct read_write_lock *lock) {
     lock_acquire(&lock->user);
     
     // Wait for all writers and readers to go away...
-    while (lock->is_acquired_by_writer || lock->reader_count > 0) {
+    while (lock->is_acquired_by_writer || lock->active_reader_count > 0) {
         cond_wait(&lock->waiting_writers, &lock->user);
     }
     
     // They're gone now, so we're allowed to write.
     lock->is_acquired_by_writer = true;
+    lock->waiting_writer_index += 1;
     lock_release(&lock->user);
 }
 
@@ -454,10 +471,10 @@ void rw_read_release(struct read_write_lock *lock) {
     ASSERT(!lock->is_acquired_by_writer);
 
     // Give it up.
-    lock->reader_count -= 1;
+    lock->active_reader_count -= 1;
     
     // Check if nobody else is using it.
-    if (lock->reader_count == 0) {
+    if (lock->active_reader_count == 0) {
         // If so, let in a writer, if one's waiting.
         if (!cond_signal(&lock->waiting_writers, &lock->user)) {
             // Otherwise, let's let all the waiting readers through.
