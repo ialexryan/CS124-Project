@@ -33,6 +33,14 @@ void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_byte
         temp; \
     })
 
+// Write to the buffeer the given struct.
+#define buffer_write_struct(SECTOR, STRUCT, DATA) \
+    ({ \
+        typeof(STRUCT) temp = DATA; \
+        buffer_write_bytes(SECTOR, 0, sizeof(STRUCT), (const void *)&temp); \
+        ; \
+    })
+
 // Write to the buffer the given data member of the struct.
 #define buffer_write_member(SECTOR, STRUCT, MEMBER, DATA) \
     ({ \
@@ -41,5 +49,17 @@ void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_byte
             sizeof(memberof(STRUCT, MEMBER)), (const void *)&temp); \
         ; \
     })
+
+// Write to the buffeer the given struct.
+#define buffer_mutate_struct(SECTOR, STRUCT, NAME, MUTATIONS) \
+    ({ \
+        typeof(STRUCT) NAME = buffer_read_struct(SECTOR, STRUCT); \
+        ({ \
+            MUTATIONS \
+        }); \
+        buffer_write_struct(SECTOR, STRUCT, NAME); \
+        ; \
+    })
+
 
 #endif /* filesys/buffer.h */
