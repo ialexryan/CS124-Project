@@ -104,6 +104,7 @@ static size_t num_inode_root_sectors_below_level(enum indirection_level target_l
 static block_sector_t get_indirect_sector(block_sector_t source_sector, size_t index) {
     struct indirect_sector_entry entry = buffer_read_member(source_sector, struct indirect_sector,
                                                      sectors[index]);
+    
     // The sector is being accessed, so let's load it if it isn't yet loaded.
     if (!entry.loaded) {
         entry.sector = free_map_allocate();

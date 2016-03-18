@@ -17,14 +17,20 @@ void free_map_init(void) {
     bitmap_mark(free_map, ROOT_DIR_SECTOR);
 }
 
+static bool writing_free_map = false;
+
 /*! Allocates a sectors from the free map and returns it. If the free_map file
     could not be written, returns -1. */
 block_sector_t free_map_allocate(void) {
     block_sector_t sector = bitmap_scan_and_flip(free_map, 0, 1, false);
-    if (sector != BITMAP_ERROR && free_map_file != NULL &&
-        !bitmap_write(free_map, free_map_file)) {
-        bitmap_set_multiple(free_map, sector, 1, false);
-        sector = BITMAP_ERROR;
+    if (!writing_free_map) {
+        writing_free_map = true;
+        if (sector != BITMAP_ERROR && free_map_file != NULL &&
+            !bitmap_write(free_map, free_map_file)) {
+            bitmap_set_multiple(free_map, sector, 1, false);
+            sector = BITMAP_ERROR;
+        }
+        writing_free_map = false;
     }
     return (sector == BITMAP_ERROR) ? -1 : sector;
 }
