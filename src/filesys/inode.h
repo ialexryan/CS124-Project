@@ -8,7 +8,15 @@
 
 struct bitmap;
 
-#define INDIRECTION_ENTIRES_PER_SECTOR 5
+struct indirect_sector_entry {
+    // True if the sector has been loaded.
+    bool loaded : 1;
+    
+    // Invalid unless loaded is true.
+    // We could've used a specific sector value to represent the unloaded state,
+    // but this was less bug prone through also less efficient.
+    block_sector_t sector;
+};
 
 // The names levels of indirection coupled with the number
 // of sectors for each level of indirection.
@@ -20,14 +28,22 @@ struct bitmap;
 #define LEVEL(_, COUNT) COUNT +
 #define TOTAL_INDIRECTION (_INDIRECTION 0)
 
+static const size_t total_num_inode_root_sectors = TOTAL_INDIRECTION;
+typedef struct indirect_sector_entry root_sector_entries[TOTAL_INDIRECTION];
+
+#undef TOTAL_INDIRECTION
+#undef LEVEL
+
 // The data (non-padding) potion of the inode_disk. Defined in a macro
 // so it can be easily embedded as an anonymous struct while still easily
 // supporting sizeof.
 #define _INODE_DATA \
-    size_t count;                       /*!< File size in bytes. */\
+    /* NOTE THAT THE SECTOR ENTRIES ARE ASSUMED TO BE FIRST! */\
+    /* SO THAT INODE INDIRECTION SECTORS CAN BE TREATED THE SAME AS THE HEADER */\
+    root_sector_entries sectors;\
+    off_t length;                       /*!< File size in bytes. */\
     unsigned magic;                     /*!< Magic number. */\
     bool is_directory;                  /*!< True if directory, false if file. */\
-    block_sector_t sectors[TOTAL_INDIRECTION];\
 
 // The informational disk-stored data associated with a given inode.
 struct inode_data { _INODE_DATA };
@@ -43,8 +59,6 @@ struct inode_disk {
     char unused[BLOCK_SECTOR_SIZE - sizeof(struct { _INODE_DATA })];
 };
 
-#undef _INODE_DATA
-#undef LEVEL
 
 /*! In-memory inode. */
 struct inode {

@@ -10,7 +10,7 @@
 
 // Hardcoded pow for compile-time optimization
 #define pow(a, b) ((b == 0) ? 1 : (b == 1) ? a : \
-    (b == 2) ? a * a : (PANIC("Unsupported power."), -1))
+    (b == 2) ? a * a : (PANIC("Unsupported power."), 0))
 
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -18,7 +18,7 @@
 // The number of sector entries on a given indirection. Provides
 // the base for the exponential growth of capacity with increased
 // levels of indirection.
-#define SECTORS_PER_INDIRECTION 4
+#define SECTORS_PER_INDIRECTION (BLOCK_SECTOR_SIZE / sizeof(struct indirect_sector_entry))
 
 // The levels of indirection.
 #define LEVEL(NAME, _) NAME ## _LEVEL,
@@ -41,8 +41,22 @@ static inline size_t num_inode_root_sectors(enum indirection_level level) {
 
 // Sector used for indirect lookup
 struct indirect_sector {
-    block_sector_t sectors[SECTORS_PER_INDIRECTION];
+    struct indirect_sector_entry sectors[SECTORS_PER_INDIRECTION];
 };
+
+/*! Returns the number of sectors to allocate for an inode SIZE
+ bytes long. */
+static inline size_t bytes_to_sectors(off_t size) {
+    return DIV_ROUND_UP(size, BLOCK_SECTOR_SIZE);
+}
+
+static inline size_t index_of_byte(off_t pos) {
+    return pos / BLOCK_SECTOR_SIZE;
+}
+
+static inline off_t byte_for_index(size_t index) {
+    return index * BLOCK_SECTOR_SIZE;
+}
 
 // The number of inode sectors that can be stored using a given level of indirection.
 static inline size_t num_sectors_per_level(enum indirection_level level) {
@@ -86,11 +100,25 @@ static size_t num_inode_root_sectors_below_level(enum indirection_level target_l
     return count;
 }
 
+// Returns the sector at a given index, allocating it if it doesn't yet exist.
+static block_sector_t get_indirect_sector(block_sector_t source_sector, size_t index) {
+    struct indirect_sector_entry entry = buffer_read_member(source_sector, struct indirect_sector,
+                                                     sectors[index]);
+    // The sector is being accessed, so let's load it if it isn't yet loaded.
+    if (!entry.loaded) {
+        entry.sector = free_map_allocate();
+        if (entry.sector <= 0) PANIC("Unable to allocate.\n");
+        entry.loaded = true;
+        buffer_write_member(source_sector, struct indirect_sector, sectors[index],
+                            entry);
+    }
+    
+    return entry.sector;
+}
+
 // Given an index, the array of sector data, and the indirection level of this data,
 // computes the corresponding sector.
 static block_sector_t _sector_at_indirect_index(size_t index, block_sector_t source_sector, enum indirection_level level) {
-    //	assert(level >= 0);
-    
     // The index of our sector in the level is simply the given index.
     size_t index_in_level = index;
     size_t sectors_per_level = num_sectors_per_level(level);
@@ -106,9 +134,7 @@ static block_sector_t _sector_at_indirect_index(size_t index, block_sector_t sou
     // Sector index is the same as the index of the sector in the level since there
     // are no other levels in our indirect sector data.
     size_t index_of_sector = index_of_sector_in_level;
-    block_sector_t sector = buffer_read_member(source_sector,
-                                               struct indirect_sector,
-                                               sectors[index_of_sector]);
+    block_sector_t sector = get_indirect_sector(source_sector, index_of_sector);
 
     // If we're on the direct level, return the sector. Otherwise, recurse on looking
     // up the sector in the next lowest indirection level.
@@ -117,10 +143,12 @@ static block_sector_t _sector_at_indirect_index(size_t index, block_sector_t sou
 }
 
 // Given an index and an inode data structure, computes the corresponding sector.
-static block_sector_t sector_at_inode_index(size_t index, struct inode *inode) {
+static block_sector_t sector_at_inode_index(size_t index, const struct inode *inode) {
+    ASSERT(byte_for_index(index) < buffer_read_member(inode->sector, struct inode_data, length));
+    
     // Determine the level from the inode index
     enum indirection_level level = level_for_inode_index(index);
-    //	assert(level >= 0);
+    ASSERT(level >= 0 && level < INDIRECTION_LEVEL_COUNT);
     
     // The index of our sector in the level is the given index offset by this
     // level's start index, subtracting sectors of lower levels.
@@ -138,8 +166,7 @@ static block_sector_t sector_at_inode_index(size_t index, struct inode *inode) {
     // Sector index is the index of the sector in the level plus the number of sectors
     // in the levels below.
     size_t index_of_sector = index_of_sector_in_level + num_inode_root_sectors_below_level(level);
-    block_sector_t sector = buffer_read_member(inode->sector, struct inode_data,
-                                               sectors[index_of_sector]);
+    block_sector_t sector = get_indirect_sector(inode->sector, index_of_sector);
 				
     // If we're on the direct level, return the sector. Otherwise, recurse on looking
     // up the sector in the next lowest indirection level. Note that we will not again
@@ -148,33 +175,48 @@ static block_sector_t sector_at_inode_index(size_t index, struct inode *inode) {
     else return _sector_at_indirect_index(index_in_sector, sector, level - 1);
 }
 
-typedef void sector_action_func (block_sector_t);
-void inode_apply (struct inode *inode, sector_action_func *) {
-    size_t i;
-    size_t count = buffer_read_member(inode->sector, struct inode_data, count);
-    for (i = 0; i < count; i++) {
-        sector_action_func(sector_at_inode_index(i, inode));
-    }
-}
-
-/*! Returns the number of sectors to allocate for an inode SIZE
-    bytes long. */
-static inline size_t bytes_to_sectors(off_t size) {
-    return DIV_ROUND_UP(size, BLOCK_SECTOR_SIZE);
-}
-
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
     Returns -1 if INODE does not contain data for a byte at offset
     POS. */
-//static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
-//    ASSERT(inode != NULL);
-//    struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
-//    if (pos < data.length)
-//        return data.start + pos / BLOCK_SECTOR_SIZE;
-//    else
-//        return -1;
-//}
+static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
+    PANIC("NOT IMPLEMENTED");
+    ASSERT(inode != NULL);
+    if (pos >= inode_length(inode)) return -1;
+    else return sector_at_inode_index(index_of_byte(pos), inode);
+}
+
+typedef void sector_action_func (block_sector_t);
+
+static void _inode_apply_loaded(block_sector_t sector, enum indirection_level level, sector_action_func *action) {
+    struct indirect_sector indirect = buffer_read_struct(sector, struct indirect_sector);
+    size_t i;
+    for (i = 0; i < SECTORS_PER_INDIRECTION; i++) {
+        if (!indirect.sectors[i].loaded) continue;
+        
+        if (level == DIRECT_LEVEL) {
+            action(indirect.sectors[i].sector);
+        } else {
+            _inode_apply_loaded(indirect.sectors[i].sector, level - 1, action);
+        }
+    }
+    action(sector);
+}
+
+// Iterate all the loaded block sectors of an inode.
+// TODO: Optimization: only interate over through the ones that are part of length.
+static void inode_apply_loaded(struct inode *inode, sector_action_func *action) {
+    struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
+    
+    size_t i;
+    for (i = 0; i < total_num_inode_root_sectors; i++) {
+        if (!data.sectors[i].loaded) continue;
+        
+        enum indirection_level level = level_for_inode_index(i);
+        _inode_apply_loaded(data.sectors[i].sector, level, action);
+    }
+    action(inode->sector);
+}
 
 /*! List of open inodes, so that opening a single inode twice
     returns the same `struct inode'. */
@@ -191,35 +233,16 @@ void inode_init(void) {
     Returns true if successful.
     Returns false if memory or disk allocation fails. */
 bool inode_create(block_sector_t sector, off_t length) {
-    struct inode_disk *disk_inode = NULL;
-    bool success = false;
-
-    ASSERT(length >= 0);
-
-    /* If this assertion fails, the inode structure is not exactly
-       one sector in size, and you should fix that. */
-    ASSERT(sizeof *disk_inode == BLOCK_SECTOR_SIZE);
-
-    disk_inode = calloc(1, sizeof *disk_inode);
-    if (disk_inode != NULL) {
-        size_t sectors = bytes_to_sectors(length);
-        disk_inode->length = length;
-        disk_inode->is_directory = false;
-        disk_inode->magic = INODE_MAGIC;
-        if (free_map_allocate(sectors, &disk_inode->start)) {
-            buffer_write(sector, disk_inode);
-            if (sectors > 0) {
-                static char zeros[BLOCK_SECTOR_SIZE];
-                size_t i;
-              
-                for (i = 0; i < sectors; i++) 
-                    buffer_write(disk_inode->start + i, zeros);
-            }
-            success = true; 
-        }
-        free(disk_inode);
-    }
-    return success;
+    buffer_initialize_struct(sector, struct inode_disk, disk, {
+        /* If this assertion fails, the inode structure is not exactly
+         one sector in size, and you should fix that. */
+        ASSERT(sizeof(disk) == BLOCK_SECTOR_SIZE);
+        
+        disk.is_directory = false;
+        disk.length = length;
+        disk.magic = INODE_MAGIC;
+    });
+    return true;
 }
 
 /*! Reads an inode from SECTOR
@@ -265,6 +288,11 @@ block_sector_t inode_get_inumber(const struct inode *inode) {
     return inode->sector;
 }
 
+// Given a sector, deallocate it.
+static void sector_dealloc(block_sector_t sector) {
+    free_map_release(sector);
+}
+
 /*! Closes INODE and writes it to disk.
     If this was the last reference to INODE, frees its memory.
     If INODE was also a removed inode, frees its blocks. */
@@ -277,15 +305,10 @@ void inode_close(struct inode *inode) {
     if (--inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
         list_remove(&inode->elem);
-        
-        // Retrive the data from the cache
-        struct inode_data data = buffer_read_struct(inode->sector, struct inode_data);
  
         /* Deallocate blocks if removed. */
         if (inode->removed) {
-            free_map_release(inode->sector, 1);
-            free_map_release(data.start,
-                             bytes_to_sectors(data.length));
+            inode_apply_loaded(inode, sector_dealloc);
         }
 
         free(inode); 

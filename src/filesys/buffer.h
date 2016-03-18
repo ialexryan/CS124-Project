@@ -50,12 +50,23 @@ void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_byte
         ; \
     })
 
-// Write to the buffeer the given struct.
+// Read from and write to the buffer the given struct.
 #define buffer_mutate_struct(SECTOR, STRUCT, NAME, MUTATIONS) \
     ({ \
         typeof(STRUCT) NAME = buffer_read_struct(SECTOR, STRUCT); \
         ({ \
             MUTATIONS \
+        }); \
+        buffer_write_struct(SECTOR, STRUCT, NAME); \
+        ; \
+    })
+
+// Write to the buffeer the given zero-initialized struct.
+#define buffer_initialize_struct(SECTOR, STRUCT, NAME, SETUP) \
+    ({ \
+        typeof(STRUCT) NAME; \
+        ({ \
+            SETUP \
         }); \
         buffer_write_struct(SECTOR, STRUCT, NAME); \
         ; \
