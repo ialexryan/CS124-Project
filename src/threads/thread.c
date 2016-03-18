@@ -599,6 +599,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->exit_status = -1;
     t->load_status = -1;
     t->orphan = false;
+    t->directory = NULL; //Starts off as the root directory
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);
