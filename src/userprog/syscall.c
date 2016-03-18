@@ -2,6 +2,7 @@
 #include "userprog/pagedir.h"
 #include "devices/shutdown.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -273,15 +274,41 @@ void sys_munmap(struct intr_frame *f) {
     thread_exit();
 }
 
+bool path_is_absolute(const char* s) { // The alternative is that it's relative
+    return s[0] == '/';
+}
+
 void sys_chdir(struct intr_frame *f) {
     ARG(const char *, dir UNUSED, f, 1);
-    printf("sys_chdir!\n");
+
+    if (path_is_absolute(dir)) {
+
+    } else {
+
+    }
+
     thread_exit();
 }
 
 void sys_mkdir(struct intr_frame *f) {
     ARG(const char *, dir UNUSED, f, 1);
-    printf("sys_mkdir!\n");
+
+    if (path_is_absolute(dir)) {
+        /* Split path by slashes */
+        /* strtok_r needs a mutable copy of the argument. */
+        char path_copy[PATH_MAX];
+        strlcpy(path_copy, dir, PATH_MAX);
+
+        char *token, *saveptr;
+
+        for (token = strtok_r(path_copy, "/", &saveptr);
+             token != NULL;
+             token = strtok_r(NULL, "/", &saveptr)) {
+        }
+
+    } else {
+        
+    }
     thread_exit();
 }
 

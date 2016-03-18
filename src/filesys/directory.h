@@ -12,6 +12,9 @@
     retained, but much longer full path names must be allowed. */
 #define NAME_MAX 14
 
+/* Maximum length of a path, including slashes */
+#define PATH_MAX 256
+
 
 /* Opening and closing directories. */
 bool dir_create(block_sector_t sector, size_t entry_cnt);
