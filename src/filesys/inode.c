@@ -365,8 +365,7 @@ off_t inode_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
 /*! Writes SIZE bytes from BUFFER into INODE, starting at OFFSET.
     Returns the number of bytes actually written, which may be
     less than SIZE if end of file is reached or an error occurs.
-    (Normally a write at end of file would extend the inode, but
-    growth is not yet implemented.) */
+*/
 off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size, off_t offset) {
     const uint8_t *buffer = buffer_;
     off_t bytes_written = 0;
@@ -379,13 +378,11 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
         block_sector_t sector_idx = byte_to_sector(inode, offset);
         int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
-        /* Bytes left in inode, bytes left in sector, lesser of the two. */
-        off_t inode_left = inode_length(inode) - offset;
+        /* Bytes left in sector. */
         int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
-        int min_left = inode_left < sector_left ? inode_left : sector_left;
 
         /* Number of bytes to actually write into this sector. */
-        int chunk_size = size < min_left ? size : min_left;
+        int chunk_size = size < sector_left ? size : sector_left;
         if (chunk_size <= 0)
             break;
 
@@ -403,7 +400,10 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
         offset += chunk_size;
         bytes_written += chunk_size;
     }
-
+    
+    buffer_mutate_member(inode->sector, struct inode_data, length, {
+        if (offset > length) length = offset;
+    });
     return bytes_written;
 }
 

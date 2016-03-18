@@ -87,9 +87,8 @@ off_t file_write(struct file *file, const void *buffer, off_t size) {
 }
 
 /*! Writes SIZE bytes from BUFFER into FILE, starting at offset FILE_OFS in
-    the file.  Returns the number of bytes actually written, which may be less
-    than SIZE if end of file is reached.  (Normally we'd grow the file in that
-    case, but file growth is not yet implemented.)
+    the file.  Returns the number of bytes actually written.
+    Note that we grow the file.
     The file's current position is unaffected. */
 off_t file_write_at(struct file *file, const void *buffer, off_t size,
                     off_t file_ofs) {

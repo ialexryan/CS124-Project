@@ -61,6 +61,20 @@ void buffer_write_bytes(block_sector_t sector, off_t sector_ofs, size_t num_byte
         ; \
     })
 
+// Read from and write to the buffer the member of the given struct.
+#define buffer_mutate_member(SECTOR, STRUCT, MEMBER, MUTATIONS) \
+    ({ \
+        typeof(memberof(STRUCT, MEMBER)) MEMBER; \
+        buffer_read_bytes(SECTOR, offsetof(STRUCT, MEMBER), \
+            sizeof(memberof(STRUCT, MEMBER)), (void *)&MEMBER); \
+        ({ \
+            MUTATIONS \
+        }); \
+        buffer_write_bytes(SECTOR, offsetof(STRUCT, MEMBER), \
+            sizeof(memberof(STRUCT, MEMBER)), (const void *)&MEMBER); \
+        ; \
+    })
+
 // Write to the buffeer the given zero-initialized struct.
 #define buffer_initialize_struct(SECTOR, STRUCT, NAME, SETUP) \
     ({ \
