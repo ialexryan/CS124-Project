@@ -8,15 +8,14 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Alex Ryan <atryan@caltech.edu>
+Jaden Geller <jgeller@caltech.edu>
 
->> Specify how many late tokens you are using on this assignment:  
+>> Specify how many late tokens you are using on this assignment:  1
 
 >> What is the Git repository and commit hash for your submission?
 
-   Repository URL:  
+   Repository URL:  https://github.com/ialexryan/CS124-Project
    commit ...
 
 ---- PRELIMINARIES ----

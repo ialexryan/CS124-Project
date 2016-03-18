@@ -135,6 +135,9 @@ struct thread {
     /**@{*/
 #endif
 
+    struct dir* directory;       /* This process' current directory */
+                                 /* Notably, this is NULL when the current dir is root */
+
     /*! Owned by thread.c. */
     /**@{*/
     unsigned magic;                     /* Detects stack overflow. */

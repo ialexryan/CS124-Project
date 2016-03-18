@@ -6,6 +6,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "devices/input.h"
@@ -88,6 +89,10 @@ void sys_exec(struct intr_frame *f) {
         if (thread->tid == child_tid) {
             // Found child! Wait for it to load...
             sema_down(&(thread->loaded));
+            // Set its current directory to our current directory
+            if (thread_current()->directory != NULL) {
+                thread->directory = dir_reopen(thread_current()->directory);
+            }
             if (thread->load_status == 0) RET(child_tid, f);
             else RET(-1, f);
             return;
