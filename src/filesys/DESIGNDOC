@@ -75,6 +75,14 @@ Jaden Geller <jgeller@caltech.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct thread {
+...
+    struct dir* directory;       /* This process' current directory */
+                                 /* Notably, this is NULL when the current dir is root */
+...
+};
+
+
 ---- ALGORITHMS ----
 
 >> B2: Describe your code for traversing a user-specified path.  How
@@ -96,6 +104,10 @@ Jaden Geller <jgeller@caltech.edu>
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+We considered storing the current directory of a process as a path string,
+but it seemed clear that storing it as a directory struct proper would
+be more convenient since we wouldn't have to parse it any time we wanted
+to use it.
 
 			     BUFFER CACHE
 			     ============
@@ -106,12 +118,54 @@ Jaden Geller <jgeller@caltech.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+
+// OBJECT DEFINITIONS
+struct buffer_entry {
+	// hash_elem for the buffer_table
+	struct hash_elem hash_elem;
+
+	// The block that currently occupies this cache slot. Used as the
+	// key in the hash table.
+	block_sector_t occupied_by_sector;
+
+	// If this cache entry has been modified and hasn't
+	// been written back to disk yet.
+	bool dirty;
+
+	// If this cache entry has been read from or written to since
+	// the last eviction algorithm pass
+	bool recently_accessed;
+
+    // 512 bytes of block data
+	uint8_t storage[BLOCK_SECTOR_SIZE];
+    
+    // The lock on this individual block
+	struct lock lock;
+};
+
+
+// GLOBAL VARIABLES
+static struct buffer_entry buffer[BUFFER_SIZE];
+static uint8_t buffer_unoccupied_slots;
+
+// This hash below maps disk sector to buffer position
+static struct hash buffer_table;
+static struct lock buffer_table_lock;
+
+// This is a number, ranging between 0 and BUFFER_SIZE,
+// that represents where the eviction clock algorithm is
+// pointing in the array of buffer elements right now.
+static int eviction_clock_position;
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how your cache replacement algorithm chooses a cache
 >> block to evict.
+Our cache replacement algorithm uses the clock strategy.
 
 >> C3: Describe your implementation of write-behind.
+
+We ran out of time to implement write-behind and read-ahead.
 
 >> C4: Describe your implementation of read-ahead.
 
@@ -121,13 +175,47 @@ Jaden Geller <jgeller@caltech.edu>
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
 
+Every block in the cache has its own lock, and there is also a lock for
+the buffer table. Any time code wants to read or write to a block,
+it must acquire the buffer table lock, find the block, acquire that block's
+lock, release the buffer table's lock, read or write to the block,
+and then release the block's lock.
+We verify before using a block that it contains the data we
+expect it to contain, thereby addressing the issue with crabbing laid out
+in the lecture slides. If it doesn't contain the data we originally got it
+for, we just go back to the searching stage.
+
 >> C6: During the eviction of a block from the cache, how are other
 >> processes prevented from attempting to access the block?
+
+This was the textbook example of the tradeoff between increased complexity
+and increased synchronization for us. We thought about several designs
+that would have allowed some normal cache access to proceed during eviction,
+but they would have involved several more locks and made our code much more
+complex. So we ended up deciding to just acquire the buffer table lock during
+eviction.
 
 ---- RATIONALE ----
 
 >> C7: Describe a file workload likely to benefit from buffer caching,
 >> and workloads likely to benefit from read-ahead and write-behind.
+
+Any workload that repeatedly accesses the same few blocks on disk, whether
+reading and writing or just reading, will benefit a lot from caching.
+Assuming that our workload is running frequently enough that its cached
+blocks don't get evicted between uses. One example of this is 
+
+A workload that consistently accesses a file, pauses for a while, then
+accesses the next block in that file will benefit greatly from readahead,
+as the data it's looking for on disk is almost always in the cache.
+
+A workload that repeatedly writes to the same area of disk a ton of times
+before settling on a final output will benefit greatly from write-behind,
+since it skips all the unnecessary slow intermediate writes to disk in
+favor of a single write at the end.
+
+Not sure if it's even technically possible, but it would be really cool in
+the future to have a test that tells us how much we sped up the cache!
 
 			   SURVEY QUESTIONS
 			   ================
@@ -143,10 +231,14 @@ website.
 
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+Implementing a cache was a fun challenge, the first in a while that I felt
+like I could really tackle with any confidence. 
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+The writeup doesn't explicitly mention that you need to create a read-write
+lock, that would have been helpful.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students in future quarters?

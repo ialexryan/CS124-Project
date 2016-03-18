@@ -42,6 +42,7 @@ struct buffer_entry {
 static struct buffer_entry buffer[BUFFER_SIZE];
 static uint8_t buffer_unoccupied_slots;
 
+// This hash below maps disk sector to buffer position
 static struct hash buffer_table;
 static struct lock buffer_table_lock;
 
