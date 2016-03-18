@@ -24,7 +24,8 @@ struct indirect_sector_entry {
 #define _INDIRECTION \
     LEVEL(DIRECT, 12) \
     LEVEL(INDIRECT, 1) \
-    LEVEL(DOUBLE_INDIRECT, 1)
+    LEVEL(DOUBLE_INDIRECT, 1) \
+    LEVEL(TRIPLE_INDIRECT, 1)
 
 #define LEVEL(_, COUNT) COUNT +
 #define TOTAL_INDIRECTION (_INDIRECTION 0)

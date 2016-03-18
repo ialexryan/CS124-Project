@@ -1,4 +1,4 @@
-       	       	     +-------------------------+
+       	       	      +-------------------------+
                      |          CS 124         |
                      | PROJECT 6: FILE SYSTEMS |
                      |     DESIGN DOCUMENT     |
@@ -23,9 +23,17 @@ Jaden Geller <jgeller@caltech.edu>
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+We didn't have time to get the majority of this project working despite spending
+quite a few days on it. We implemented the buffer, read-write locks, and inodes,
+although we didn't get a chance to actually use the r/w locks in our
+synchronization. There seem to be quite a few synchronization errors with this
+submission as well that we were unable to track down sufficiently quickly. 
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course instructors.
+
+Wikipedia
 
 		     INDEXED AND EXTENSIBLE FILES
 		     ============================
@@ -36,13 +44,99 @@ Jaden Geller <jgeller@caltech.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+// We use lazily loaded sectors for our inodes, so the indirect inode
+// tables must keep track of which sectors have yet been loaded.
+struct indirect_sector_entry {
+    // True if the sector has been loaded.
+    bool loaded : 1;
+    
+    // Invalid unless loaded is true.
+    // We could've used a specific sector value to represent the unloaded state,
+    // but this was less bug prone through also less efficient.
+    block_sector_t sector;
+};
+
+// The names levels of indirection coupled with the number
+// of sectors for each level of indirection.
+#define _INDIRECTION \
+    LEVEL(DIRECT, 12) \
+    LEVEL(INDIRECT, 1) \
+    LEVEL(DOUBLE_INDIRECT, 1)
+
+#define LEVEL(_, COUNT) COUNT +
+#define TOTAL_INDIRECTION (_INDIRECTION 0)
+
+// The number of indirection members on the inode data.
+static const size_t total_num_inode_root_sectors = TOTAL_INDIRECTION;
+typedef struct indirect_sector_entry root_sector_entries[TOTAL_INDIRECTION];
+
+#undef TOTAL_INDIRECTION
+#undef LEVEL
+
+// The data (non-padding) potion of the inode_disk. Defined in a macro
+// so it can be easily embedded as an anonymous struct while still easily
+// supporting sizeof.
+#define _INODE_DATA \
+    /* NOTE THAT THE SECTOR ENTRIES ARE ASSUMED TO BE FIRST! */\
+    /* SO THAT INODE INDIRECTION SECTORS CAN BE TREATED THE SAME AS THE HEADER */\
+    root_sector_entries sectors;\
+    off_t length;                       /*!< File size in bytes. */\
+    unsigned magic;                     /*!< Magic number. */\
+    bool is_directory;                  /*!< True if directory, false if file. */\
+
+// The informational disk-stored data associated with a given inode.
+struct inode_data { _INODE_DATA };
+
+/*! On-disk inode.
+	Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+// The actual disk-stored struct that includes the padding.
+struct inode_disk {
+    // Anonymously embed all the data members in this struct.
+    struct { _INODE_DATA };
+    
+    /*!< Not used, except to pad inode_disk to BLOCK_SECTOR_SIZE */
+    char unused[BLOCK_SECTOR_SIZE - sizeof(struct { _INODE_DATA })];
+};
+
+/*! In-memory inode. */
+// We added a lock for synchronization of extending files. This happens whenever we
+// lazily load a sector on access. Note that files are extended automatically when we
+// write past the end.
+struct inode {
+    struct list_elem elem;              /*!< Element in inode list. */
+    block_sector_t sector;              /*!< Sector number of disk location. */
+    int open_cnt;                       /*!< Number of openers. */
+    bool removed;                       /*!< True if deleted, false otherwise. */
+    int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
+    struct lock extend_lock;            /*!< Lock that must be acquired to extend. */
+};
+
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
+
+We support 12 DIRECT references, 1 INDIRECT reference, and 1 DOUBLE_INDIRECT reference.
+Note that this can easily be modified by changing the enum. We can even support
+TRIPLE_INDIRECT references too just with a simple enum change!! Neat, right?!
+In fact, I just made that change, because why not. Now we support triple indirect references.
+Now I just made the math harder for myself...
+
+Note that each indirect reference has (BLOCK_SECTOR_SIZE / sizeof(struct indirect_sector_entry))
+references. Since BLOCK_SECTOR_SIZE is 512 and sizeof(struct indirect_sector_entry) is 8, we can
+support 64 entires of each indirect.
+
+(12 * 1 + 1 * 64 + 1 * 64^2 + 1 * 64^3) * 512 = 136,353,792 bytes = 136.353792 gigabytes
 
 ---- SYNCHRONIZATION ----
 
 >> A3: Explain how your code avoids a race if two processes attempt to
 >> extend a file at the same time.
+
+Each inode has a file extension lock on it. Whenever a process tries to access
+a sector of the node, it must first check if it has been allocated yet (since
+allocation happens lazily). If first acquires the inode extension lock to do this
+to ensure the node isn't extended to include this sector while it makes the check.
+It then makes the check and performs the extension if necessary, before releasing
+the lock.
 
 >> A4: Suppose processes A and B both have file F open, both
 >> positioned at end-of-file.  If A reads and B writes F at the same
@@ -51,12 +145,24 @@ Jaden Geller <jgeller@caltech.edu>
 >> nonzero data, A is not allowed to see all zeros.  Explain how your
 >> code avoids this race.
 
+We built a read-write lock so that reads to the buffer cannot occur while
+a writer is using the buffer. Once the writer is done, the reader may take
+its turn and thus will read valid data.
+
 >> A5: Explain how your synchronization design provides "fairness".
 >> File access is "fair" if readers cannot indefinitely block writers
 >> or vice versa.  That is, many processes reading from a file cannot
 >> prevent forever another process from writing the file, and many
 >> processes writing to a file cannot prevent another process forever
 >> from reading the file.
+
+Our read write lock implements fairness as follows:
+* When all readers finish using the lock, a writer is given first priority 
+  when choosing who gets to use the lock next.
+* When the writer finishes using the lock, readers are given first priority
+  when choosing who gets to use the lock next.
+* When new readers show up for a lock in use by readers, they may only start
+  reading if there is no writer ahead of them in line--else they must wait.
 
 ---- RATIONALE ----
 
@@ -65,6 +171,11 @@ Jaden Geller <jgeller@caltech.edu>
 >> indirect blocks?  If not, why did you choose an alternative inode
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
+
+Yes, our structure isa multilevel index. We built it in an extremely generic
+way such that by simply changing an enum, we can increase the number of direct,
+indirect, double indirect, triply indirect, quadruply indirect, etc. blocks.
+We chose to use 1 indirect, 1 double indirect, and one triple indirect block.
 
 			    SUBDIRECTORIES
 			    ==============
@@ -88,6 +199,8 @@ struct thread {
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
 
+N/A
+
 ---- SYNCHRONIZATION ----
 
 >> B4: How do you prevent races on directory entries?  For example,
@@ -95,15 +208,20 @@ struct thread {
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+N/A
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
 
+N/A
+
 ---- RATIONALE ----
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+
 We considered storing the current directory of a process as a path string,
 but it seemed clear that storing it as a directory struct proper would
 be more convenient since we wouldn't have to parse it any time we wanted
@@ -161,6 +279,7 @@ static int eviction_clock_position;
 
 >> C2: Describe how your cache replacement algorithm chooses a cache
 >> block to evict.
+
 Our cache replacement algorithm uses the clock strategy.
 
 >> C3: Describe your implementation of write-behind.
@@ -229,14 +348,21 @@ website.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+It wasn't too difficult, but there simply wasn't enough time to do it
+after getting so far behind in my other classes after the previous assignment.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
 Implementing a cache was a fun challenge, the first in a while that I felt
-like I could really tackle with any confidence. 
+like I could really tackle with any confidence.
+
+Inodes and the read write lock were definitely interesting, yes.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+
 The writeup doesn't explicitly mention that you need to create a read-write
 lock, that would have been helpful.
 
