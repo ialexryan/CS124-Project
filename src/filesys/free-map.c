@@ -43,8 +43,10 @@ block_sector_t free_map_allocate(void) {
 
 /*! Makes the sectors available for use. */
 void free_map_release(block_sector_t sector) {
+    lock_acquire(&lock);
     ASSERT(bitmap_all(free_map, sector, 1));
     bitmap_set_multiple(free_map, sector, 1, false);
+    lock_release(&lock);
     bitmap_write(free_map, free_map_file);
 }
 

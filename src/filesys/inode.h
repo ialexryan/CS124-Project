@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 #include "devices/block.h"
+#include "threads/synch.h"
 
 struct bitmap;
 
@@ -67,6 +68,7 @@ struct inode {
     int open_cnt;                       /*!< Number of openers. */
     bool removed;                       /*!< True if deleted, false otherwise. */
     int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
+    struct lock extend_lock;                 /*!< Lock that must be acquired to extend. */
 };
 
 void inode_init(void);

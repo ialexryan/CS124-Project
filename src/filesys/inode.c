@@ -101,9 +101,10 @@ static size_t num_inode_root_sectors_below_level(enum indirection_level target_l
 }
 
 // Returns the sector at a given index, allocating it if it doesn't yet exist.
-static block_sector_t get_indirect_sector(block_sector_t source_sector, size_t index) {
-    struct indirect_sector_entry entry = buffer_read_member(source_sector, struct indirect_sector,
-                                                     sectors[index]);
+static block_sector_t get_indirect_sector(struct inode *inode, block_sector_t source_sector, size_t index) {
+    bool already_acquired = lock_held_by_current_thread(&inode->lock);
+    if (!already_acquired) lock_acquire(&inode->extend_lock);
+    struct indirect_sector_entry entry = buffer_read_member(source_sector, struct indirect_sector, sectors[index]);
     
     // The sector is being accessed, so let's load it if it isn't yet loaded.
     if (!entry.loaded) {
@@ -113,13 +114,14 @@ static block_sector_t get_indirect_sector(block_sector_t source_sector, size_t i
         buffer_write_member(source_sector, struct indirect_sector, sectors[index],
                             entry);
     }
-    
+    if (!already_acquired) lock_release(&inode->extend_lock);
+
     return entry.sector;
 }
 
 // Given an index, the array of sector data, and the indirection level of this data,
 // computes the corresponding sector.
-static block_sector_t _sector_at_indirect_index(size_t index, block_sector_t source_sector, enum indirection_level level) {
+static block_sector_t _sector_at_indirect_index(struct inode *inode, size_t index, block_sector_t source_sector, enum indirection_level level) {
     // The index of our sector in the level is simply the given index.
     size_t index_in_level = index;
     size_t sectors_per_level = num_sectors_per_level(level);
@@ -135,12 +137,12 @@ static block_sector_t _sector_at_indirect_index(size_t index, block_sector_t sou
     // Sector index is the same as the index of the sector in the level since there
     // are no other levels in our indirect sector data.
     size_t index_of_sector = index_of_sector_in_level;
-    block_sector_t sector = get_indirect_sector(source_sector, index_of_sector);
+    block_sector_t sector = get_indirect_sector(inode, source_sector, index_of_sector);
 
     // If we're on the direct level, return the sector. Otherwise, recurse on looking
     // up the sector in the next lowest indirection level.
     if (level == DIRECT_LEVEL) return sector;
-    else return _sector_at_indirect_index(index_in_sector, sector, level - 1);
+    else return _sector_at_indirect_index(inode, index_in_sector, sector, level - 1);
 }
 
 // Given an index and an inode data structure, computes the corresponding sector.
@@ -167,13 +169,13 @@ static block_sector_t sector_at_inode_index(size_t index, const struct inode *in
     // Sector index is the index of the sector in the level plus the number of sectors
     // in the levels below.
     size_t index_of_sector = index_of_sector_in_level + num_inode_root_sectors_below_level(level);
-    block_sector_t sector = get_indirect_sector(inode->sector, index_of_sector);
+    block_sector_t sector = get_indirect_sector(inode, inode->sector, index_of_sector);
 				
     // If we're on the direct level, return the sector. Otherwise, recurse on looking
     // up the sector in the next lowest indirection level. Note that we will not again
     // check the root inode data sector, but an indirection sector.
     if (level == DIRECT_LEVEL) return sector;
-    else return _sector_at_indirect_index(index_in_sector, sector, level - 1);
+    else return _sector_at_indirect_index(inode, index_in_sector, sector, level - 1);
 }
 
 /*! Returns the block device sector that contains byte offset POS
@@ -273,6 +275,7 @@ struct inode * inode_open(block_sector_t sector) {
     inode->open_cnt = 1;
     inode->deny_write_cnt = 0;
     inode->removed = false;
+    lock_init(&inode->extend_lock);
     return inode;
 }
 
