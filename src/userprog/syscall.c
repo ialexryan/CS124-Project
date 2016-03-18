@@ -131,7 +131,7 @@ void sys_open(struct intr_frame *f) {
     ARG(const char *, file_name, f, 1);
     verify_user_pointer((void *)file_name);
 
-    if (file_name == NULL) {
+    if (file_name == NULL || *file_name == (char)0) {
         RET(-1, f);
         return;
     }

@@ -180,8 +180,8 @@ struct buffer_entry *buffer_acquire_existing_entry(block_sector_t sector) {
 // Returns a pointer to an empty buffer slot.
 // If there isn't one, takes care of evicting one.
 // Precondition: The global lock is held by the current thread.
-// Postcondition: The global lock is released, and
-//                the buffer entry's lock is acquired.
+// Postcondition: The global lock and the buffer entry's lock are held
+//                by the current thread.
 struct buffer_entry* buffer_acquire_free_slot(void) {
 
 	// Any function that calls this function should have already
@@ -196,10 +196,6 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         b = &(buffer[buffer_unoccupied_slots]);
         lock_acquire(&b->lock);
         ASSERT(b->occupied_by_sector == UNOCCUPIED);
-
-        // We can release the global lock after acquiring the buffer lock
-        // since we can't block---nobody to wait on for an unused buffer.
-        lock_release(&buffer_table_lock);
 	}
     // Otherwise, evict an existing buffer entry...
     else {
@@ -221,10 +217,6 @@ struct buffer_entry* buffer_acquire_free_slot(void) {
         hash_delete(&buffer_table, &(b->hash_elem));
         b->occupied_by_sector = UNOCCUPIED;
         b->recently_accessed = false;
-
-        // TODO: Uncertain if we ought to block on the table lock in the
-        //       case of eviction. Reconsider later.
-        lock_release(&buffer_table_lock);
     }
     return b;
 }
@@ -246,7 +238,8 @@ struct buffer_entry *buffer_acquire(block_sector_t sector) {
         b->occupied_by_sector = sector;
         b->recently_accessed = true;
         hash_insert(&buffer_table, &(b->hash_elem));
-        
+        lock_release(&buffer_table_lock);
+
         // Read the on-disk data into the buffer.
         block_read(fs_device, sector, &(b->storage));
     }

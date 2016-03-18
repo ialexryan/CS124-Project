@@ -102,7 +102,7 @@ static size_t num_inode_root_sectors_below_level(enum indirection_level target_l
 
 // Returns the sector at a given index, allocating it if it doesn't yet exist.
 static block_sector_t get_indirect_sector(struct inode *inode, block_sector_t source_sector, size_t index) {
-    bool already_acquired = lock_held_by_current_thread(&inode->lock);
+    bool already_acquired = lock_held_by_current_thread(&inode->extend_lock);
     if (!already_acquired) lock_acquire(&inode->extend_lock);
     struct indirect_sector_entry entry = buffer_read_member(source_sector, struct indirect_sector, sectors[index]);
     
