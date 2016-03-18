@@ -180,7 +180,6 @@ static block_sector_t sector_at_inode_index(size_t index, const struct inode *in
     Returns -1 if INODE does not contain data for a byte at offset
     POS. */
 static block_sector_t byte_to_sector(const struct inode *inode, off_t pos) {
-    PANIC("NOT IMPLEMENTED");
     ASSERT(inode != NULL);
     if (pos >= inode_length(inode)) return -1;
     else return sector_at_inode_index(index_of_byte(pos), inode);
